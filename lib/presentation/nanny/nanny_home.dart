@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/backend.dart';
 import '../../data/nanny_store.dart';
 import '../common.dart';
+import '../theme.dart';
 import '../update_widgets.dart';
 import 'children_screens.dart';
 import 'daily_tab.dart';
@@ -96,7 +97,7 @@ class _NannyHomeState extends State<NannyHome> {
               IconButton(icon: const Icon(Icons.logout), tooltip: 'Déconnexion', onPressed: widget.onSignOut),
           ],
         ),
-        body: s.loading
+        body: BubbleBackground(animate: false, child: s.loading
             ? const Center(child: CircularProgressIndicator())
             : s.error != null
                 ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Erreur : ${s.error}')))
@@ -106,16 +107,16 @@ class _NannyHomeState extends State<NannyHome> {
                     2 => DailyTab(store: s),
                     3 => RecapTab(store: s),
                     _ => TaxTab(store: s),
-                  },
+                  }),
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) => setState(() => tab = i),
           destinations: const [
-            NavigationDestination(icon: Icon(Icons.child_care), label: 'Enfants'),
-            NavigationDestination(icon: Icon(Icons.calendar_view_week), label: 'Planning'),
-            NavigationDestination(icon: Icon(Icons.today), label: 'Suivi'),
-            NavigationDestination(icon: Icon(Icons.receipt_long), label: 'Récaps'),
-            NavigationDestination(icon: Icon(Icons.account_balance), label: 'Fiscal'),
+            NavigationDestination(icon: Icon(Icons.child_care_rounded), selectedIcon: Icon(Icons.child_care_rounded, color: Kid.coral), label: 'Enfants'),
+            NavigationDestination(icon: Icon(Icons.calendar_month_rounded), selectedIcon: Icon(Icons.calendar_month_rounded, color: Kid.sky), label: 'Planning'),
+            NavigationDestination(icon: Icon(Icons.checklist_rounded), selectedIcon: Icon(Icons.checklist_rounded, color: Kid.mint), label: 'Suivi'),
+            NavigationDestination(icon: Icon(Icons.savings_rounded), selectedIcon: Icon(Icons.savings_rounded, color: Kid.lavender), label: 'Récaps'),
+            NavigationDestination(icon: Icon(Icons.account_balance_rounded), selectedIcon: Icon(Icons.account_balance_rounded, color: Kid.coral), label: 'Fiscal'),
           ],
         ),
       ),

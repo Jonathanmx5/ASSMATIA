@@ -8,6 +8,8 @@ import '../config.dart';
 import '../main.dart';
 import 'common.dart';
 import 'update_widgets.dart';
+import 'theme.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -60,57 +62,96 @@ class _AuthScreenState extends State<AuthScreen> {
     if (mounted) setState(() => busy = false);
   }
 
+  Future<void> _forgot() async {
+    final e = email.text.trim();
+    if (!e.contains('@')) {
+      setState(() => error = 'Saisissez votre e-mail ci-dessus.');
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: e);
+      setState(() => error = 'Si un compte existe, un e-mail de réinitialisation a été envoyé.');
+    } on FirebaseAuthException catch (x) {
+      setState(() => error = x.message ?? x.code);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
     return Scaffold(
-      body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(24), children: [
-          const Align(alignment: Alignment.centerRight, child: UpdateGearButton()),
-          const Icon(Icons.child_friendly, size: 64),
-          Text('ASSMATIA', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
-          const Text('Gestion des contrats d\'accueil', textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'E-mail')),
-          TextField(controller: pwd, obscureText: true, decoration: const InputDecoration(labelText: 'Mot de passe')),
-          if (error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(error!, style: const TextStyle(color: Colors.red))),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: busy ? null : _google,
-            icon: const Icon(Icons.account_circle),
-            label: const Text('Continuer avec Google'),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Row(children: [
-              Expanded(child: Divider()),
-              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('ou par e-mail')),
-              Expanded(child: Divider()),
+      body: Container(
+        decoration: const BoxDecoration(gradient: Kid.skyGradient),
+        child: BubbleBackground(
+          child: SafeArea(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
+              const Align(alignment: Alignment.centerRight, child: UpdateGearButton()),
+              const Center(child: KidLogo(size: 120)).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
+              const SizedBox(height: 12),
+              Text('ASSMATIA', textAlign: TextAlign.center, style: tt.headlineLarge?.copyWith(color: Colors.white, letterSpacing: 1.5))
+                  .animate().fadeIn(delay: 150.ms).slideY(begin: .3),
+              Text("Le carnet de bord des petits et de leur nounou",
+                      textAlign: TextAlign.center,
+                      style: tt.titleMedium?.copyWith(color: Colors.white.withValues(alpha: .95)))
+                  .animate().fadeIn(delay: 300.ms),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [BoxShadow(color: Kid.lavender.withValues(alpha: .3), blurRadius: 30, offset: const Offset(0, 12))],
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(signup ? 'Créer mon compte' : 'Bon retour parmi nous !',
+                      style: tt.titleLarge, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: Kid.coral),
+                    onPressed: busy ? null : _google,
+                    icon: const Icon(Icons.account_circle_rounded),
+                    label: const Text('Continuer avec Google'),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Row(children: [
+                      Expanded(child: Divider()),
+                      Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('ou par e-mail')),
+                      Expanded(child: Divider()),
+                    ]),
+                  ),
+                  TextField(
+                    controller: email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'E-mail', prefixIcon: Icon(Icons.mail_rounded)),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: pwd,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Mot de passe', prefixIcon: Icon(Icons.lock_rounded)),
+                  ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(error!, style: const TextStyle(color: Kid.coral, fontWeight: FontWeight.w700)),
+                    ).animate().shake(hz: 3, offset: const Offset(4, 0)),
+                  const SizedBox(height: 16),
+                  OutlinedButton(onPressed: busy ? null : _go, child: Text(signup ? 'Créer un compte' : 'Se connecter')),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    TextButton(
+                      onPressed: () => setState(() => signup = !signup),
+                      child: Text(signup ? "J'ai déjà un compte" : 'Créer un compte'),
+                    ),
+                    if (!signup) TextButton(onPressed: _forgot, child: const Text('Mot de passe oublié')),
+                  ]),
+                ]),
+              ).animate().fadeIn(delay: 400.ms, duration: 500.ms).slideY(begin: .15, curve: Curves.easeOutCubic),
+              const SizedBox(height: 12),
+              const Disclaimer(compact: true),
             ]),
           ),
-          OutlinedButton(onPressed: busy ? null : _go, child: Text(signup ? 'Créer un compte' : 'Se connecter')),
-          TextButton(
-            onPressed: () => setState(() => signup = !signup),
-            child: Text(signup ? 'J\'ai déjà un compte' : 'Créer un compte'),
-          ),
-          if (!signup)
-            TextButton(
-              onPressed: () async {
-                final e = email.text.trim();
-                if (!e.contains('@')) {
-                  setState(() => error = 'Saisissez votre e-mail ci-dessus.');
-                  return;
-                }
-                try {
-                  await FirebaseAuth.instance.sendPasswordResetEmail(email: e);
-                  setState(() => error = 'Si un compte existe, un e-mail de réinitialisation a été envoyé.');
-                } on FirebaseAuthException catch (x) {
-                  setState(() => error = x.message ?? x.code);
-                }
-              },
-              child: const Text('Mot de passe oublié'),
-            ),
-          const Disclaimer(),
-        ]),
+        ),
       ),
     );
   }

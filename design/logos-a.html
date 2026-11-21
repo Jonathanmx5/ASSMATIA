@@ -1,0 +1,70 @@
+<title>Logos ASSMATIA — le A</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Planche : dix variations construites sur la lettre A ; grande vignette + icône réelle. */
+:root{
+  --bg:#FFF8EE; --card:#FFFFFF; --ink:#2E2A4F; --muted:#6B6690; --line:#EFE6FA;
+  --display:"Fredoka","Nunito",system-ui,sans-serif; --body:"Nunito",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1C1A2E;--card:#26233D;--ink:#F4F1FF;--muted:#B5AFD6;--line:#37325A;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1C1A2E;--card:#26233D;--ink:#F4F1FF;--muted:#B5AFD6;--line:#37325A;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1120px;margin:0 auto;display:grid;gap:24px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(28px,5vw,40px);margin:0;text-wrap:balance}
+.lead{margin:6px 0 0;color:var(--muted);font-size:16px;max-width:62ch;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:28px;padding:18px;display:grid;gap:12px;align-content:start}
+.mark{aspect-ratio:1;max-width:100%;border-radius:22px;display:grid;place-items:center;background:var(--bg)}
+.mark svg{width:72%;height:72%;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.card:hover .mark svg{transform:scale(1.07) rotate(-3deg)}
+.row{display:flex;align-items:center;gap:10px}
+.num{font-family:var(--display);font-weight:600;font-size:13px;min-width:34px;height:30px;padding:0 6px;border-radius:15px;display:grid;place-items:center;color:#fff;background:#7B5CE6}
+.name{font-family:var(--display);font-weight:600;font-size:19px;margin:0}
+.desc{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.icons{display:flex;gap:10px;align-items:center}
+.icons span{font-size:12px;color:var(--muted);font-weight:700}
+.mini{width:44px;height:44px;border-radius:12px;overflow:hidden}
+.mini svg{width:100%;height:100%;display:block}
+@media (prefers-reduced-motion:reduce){.mark svg{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Dix idées autour du A</h1>
+    <p class="lead">Toutes partent de la lettre A d'ASSMATIA, transformée en objet ou en scène de l'enfance. Numérotées A1 à A10 pour les distinguer de la première série.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const L = [
+ {n:"A-maison", d:"Le A devient un toit ; la barre est un plancher et la porte un cœur. Accueillir chez soi.",
+  s:`<rect width="120" height="120" rx="30" fill="#5DB7F0"/><path d="M24 96 60 22l36 74" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/><rect x="38" y="70" width="44" height="9" rx="4.5" fill="#FFC24B"/><path d="M60 64s-9-5-9-11a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c0 6-9 11-9 11z" fill="#FF7A6B"/>`},
+ {n:"A-balançoire", d:"Les jambes du A forment le portique, un enfant se balance sur la barre.",
+  s:`<rect width="120" height="120" rx="30" fill="#E6F7F1"/><path d="M22 102 60 20l38 82" fill="none" stroke="#4CC9A6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><g transform="rotate(-12 60 34)"><path d="M50 36v40M70 36v40" stroke="#2E2A4F" stroke-width="3"/><rect x="44" y="74" width="32" height="7" rx="3.5" fill="#FF7A6B"/><circle cx="60" cy="62" r="8" fill="#FFC24B"/><path d="M54 74q6-8 12 0" fill="#FF8FB8"/></g>`},
+ {n:"A-crayons", d:"Deux crayons de couleur se rejoignent en pointe ; la barre est un trait de gribouillis.",
+  s:`<rect width="120" height="120" rx="30" fill="#FFF8EE"/><g transform="rotate(-22 60 60)"><rect x="52" y="30" width="16" height="76" rx="3" fill="#FF7A6B"/><path d="M52 30 60 10l8 20z" fill="#FFE3C2"/><path d="M57 17.5 60 10l3 7.5z" fill="#2E2A4F"/></g><g transform="rotate(22 60 60)"><rect x="52" y="30" width="16" height="76" rx="3" fill="#5DB7F0"/><path d="M52 30 60 10l8 20z" fill="#FFE3C2"/><path d="M57 17.5 60 10l3 7.5z" fill="#2E2A4F"/></g><path d="M38 76q6-8 12 0t12 0 12 0 12 0" fill="none" stroke="#FFC24B" stroke-width="6" stroke-linecap="round"/>`},
+ {n:"A-tipi", d:"Une petite tente de jeu en forme de A, avec son fanion : la cabane, le refuge.",
+  s:`<rect width="120" height="120" rx="30" fill="#FFF1D6"/><path d="M18 100 60 24l42 76z" fill="#FF7A6B"/><path d="M60 24 18 100h21z" fill="#E8604F"/><path d="M48 100 60 70l12 30z" fill="#2E2A4F"/><path d="M60 24 50 10M60 24 70 10" stroke="#2E2A4F" stroke-width="3" stroke-linecap="round"/><path d="M70 10v-2l14 5-14 5z" fill="#4CC9A6"/><g fill="#FFC24B"><circle cx="48" cy="58" r="3"/><circle cx="72" cy="58" r="3"/><circle cx="60" cy="48" r="3"/></g>`},
+ {n:"A-famille", d:"Un grand personnage et un petit se tiennent la main : leurs bras forment la barre du A.",
+  s:`<rect width="120" height="120" rx="60" fill="#FFE3EC"/><path d="M28 104 52 40" stroke="#7B5CE6" stroke-width="13" stroke-linecap="round"/><circle cx="54" cy="28" r="11" fill="#7B5CE6"/><path d="M92 104 72 60" stroke="#FF7A6B" stroke-width="10" stroke-linecap="round"/><circle cx="70" cy="50" r="8" fill="#FF7A6B"/><path d="M44 74q19 8 38 2" fill="none" stroke="#FFC24B" stroke-width="8" stroke-linecap="round"/>`},
+ {n:"A-fusée", d:"Le A décolle : une fusée jouet avec son hublot et sa flamme. Énergie et croissance.",
+  s:`<rect width="120" height="120" rx="30" fill="#2E2A4F"/><path d="M60 14c14 14 22 36 22 62H38c0-26 8-48 22-62z" fill="#fff"/><path d="M38 76 26 92l14-2zM82 76l12 16-14-2z" fill="#FF7A6B"/><circle cx="60" cy="46" r="9" fill="#5DB7F0" stroke="#FFC24B" stroke-width="3"/><rect x="40" y="62" width="40" height="7" rx="3.5" fill="#7B5CE6"/><path d="M50 80q10 26 20 0" fill="#FFC24B"/><circle cx="24" cy="26" r="2.5" fill="#FFC24B"/><circle cx="96" cy="40" r="2" fill="#fff"/>`},
+ {n:"A-montagne", d:"Un A-colline avec un soleil levant dans son creux : chaque journée qui commence.",
+  s:`<rect width="120" height="120" rx="30" fill="#8FD3FE"/><circle cx="60" cy="88" r="17" fill="#FFC24B"/><path d="M14 104 60 22l46 82z" fill="none" stroke="#fff" stroke-width="12" stroke-linejoin="round"/><path d="M8 104h104v16H8z" fill="#4CC9A6"/><path d="M42 72h36" stroke="#fff" stroke-width="7" stroke-linecap="round"/>`},
+ {n:"A-arc-en-ciel", d:"Un A tracé en trois bandes de couleur qui se suivent, comme un ruban de jeu.",
+  s:`<rect width="120" height="120" rx="30" fill="#fff"/><g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"><path d="M20 100 60 18l40 82" stroke="#FF7A6B"/><path d="M31 100 60 40l29 60" stroke="#FFC24B"/><path d="M42 100 60 62l18 38" stroke="#4CC9A6"/></g><circle cx="60" cy="86" r="6" fill="#5DB7F0"/>`},
+ {n:"A-bulle", d:"Un A tout rond et moelleux, avec un visage souriant : la mascotte de l'application.",
+  s:`<rect width="120" height="120" rx="30" fill="#9C7CF0"/><path d="M60 16c10 0 15 8 19 18l17 50c4 12-4 20-14 20-7 0-11-5-13-11l-2-7H53l-2 7c-2 6-6 11-13 11-10 0-18-8-14-20l17-50c4-10 9-18 19-18z" fill="#fff"/><path d="M55 80h10l-5-16z" fill="#9C7CF0"/><circle cx="52" cy="46" r="3.5" fill="#2E2A4F"/><circle cx="68" cy="46" r="3.5" fill="#2E2A4F"/><path d="M53 54q7 6 14 0" stroke="#2E2A4F" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="46" cy="53" r="3.5" fill="#FF8FB8"/><circle cx="74" cy="53" r="3.5" fill="#FF8FB8"/>`},
+ {n:"A-cube", d:"Le A gravé sur un cube de jeu en relief, coins arrondis : simple, reconnaissable.",
+  s:`<rect width="120" height="120" rx="30" fill="#FFF8EE"/><path d="M22 40 60 22l38 18v44L60 102 22 84z" fill="#FFC24B"/><path d="M60 58 98 40v44L60 102z" fill="#F2A93B"/><path d="M22 40 60 58v44L22 84z" fill="#FF7A6B"/><path d="M60 58 22 40l38-18 38 18z" fill="#FFD36E"/><path d="M30 92 41 54l11 42M34 80h14" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`},
+];
+const g=document.getElementById('grid');
+L.forEach((l,i)=>{
+  const svg=`<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${l.n}">${l.s}</svg>`;
+  const el=document.createElement('article');el.className='card';
+  el.innerHTML=`<div class="mark">${svg}</div><div class="row"><span class="num">A${i+1}</span><h2 class="name">${l.n}</h2></div><p class="desc">${l.d}</p><div class="icons"><div class="mini">${svg}</div><span>Icône sur l'écran d'accueil</span></div>`;
+  g.appendChild(el);
+});
+</script>

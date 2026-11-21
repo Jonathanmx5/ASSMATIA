@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/models.dart';
+import 'theme.dart';
 
 final euro = NumberFormat.currency(locale: 'fr_FR', symbol: '€', decimalDigits: 2);
 final hoursFmt = NumberFormat('0.##', 'fr_FR');
@@ -52,7 +53,12 @@ class ChildDot extends StatelessWidget {
   Widget build(BuildContext context) => Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: Color(color), shape: BoxShape.circle));
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(color),
+        border: Border.all(color: Colors.white, width: size / 7),
+        boxShadow: [BoxShadow(color: Color(color).withValues(alpha: .4), blurRadius: 6, offset: const Offset(0, 2))],
+      ));
 }
 
 class Line extends StatelessWidget {
@@ -90,9 +96,9 @@ class SummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            ChildDot(color),
-            const SizedBox(width: 8),
-            Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+            ChildAvatar(name: title, color: color, size: 40),
+            const SizedBox(width: 10),
+            Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
             if (s['locked'] == true) const Chip(avatar: Icon(Icons.lock, size: 16), label: Text('Validé')),
             if (s['provisional'] == true && s['locked'] != true) const Chip(label: Text('Prévisionnel')),
           ]),

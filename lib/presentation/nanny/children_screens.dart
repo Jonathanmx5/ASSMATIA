@@ -6,6 +6,8 @@ import '../../domain/engine.dart';
 import '../../domain/models.dart';
 import '../common.dart';
 import 'contract_screens.dart';
+import '../theme.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class ChildrenTab extends StatefulWidget {
   final NannyStore store;
@@ -18,35 +20,91 @@ class _ChildrenTabState extends State<ChildrenTab> {
   bool showArchived = false;
 
   @override
+  @override
   Widget build(BuildContext context) {
     final s = widget.store;
     final list = showArchived ? s.archivedChildren : s.activeChildren;
+    final today = DateTime.now();
+    final here = s.activeChildren.where((c) {
+      final ct = s.contractOn(c.id, today);
+      return ct != null && resolveTerms(ct, today).schedule.hoursFor(today.weekday) > 0 &&
+          s.kindOf(c.id, today) == DayKind.normal;
+    }).length;
+    final hour = today.hour;
+    final hello = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
+    final tt = Theme.of(context).textTheme;
     return Scaffold(
-      body: ListView(children: [
+      backgroundColor: Colors.transparent,
+      body: ListView(padding: const EdgeInsets.only(bottom: 96), children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(gradient: Kid.sunGradient, borderRadius: BorderRadius.circular(28)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('$hello !', style: tt.headlineSmall?.copyWith(color: Colors.white)),
+                  Text('${weekdayNames[today.weekday - 1]} ${fmtDate(today)}',
+                      style: tt.titleSmall?.copyWith(color: Colors.white.withValues(alpha: .9))),
+                ]),
+              ),
+              const Icon(Icons.wb_sunny_rounded, color: Colors.white, size: 44)
+                  .animate(onPlay: (c) => loopIfEnabled(c))
+                  .rotate(duration: 12.seconds),
+            ]),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: _Pill(icon: Icons.child_care_rounded, text: '${s.activeChildren.length} enfant(s)')),
+              const SizedBox(width: 8),
+              Expanded(child: _Pill(icon: Icons.today_rounded, text: "$here accueilli(s) aujourd'hui")),
+            ]),
+          ]),
+        ).animate().fadeIn(duration: 400.ms).slideY(begin: -.1),
         SwitchListTile(
           title: const Text('Afficher les enfants archivés'),
           value: showArchived,
           onChanged: (v) => setState(() => showArchived = v),
         ),
         if (list.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(32),
-            child: Text('Aucun enfant. Ajoutez une fiche avec le bouton +.', textAlign: TextAlign.center),
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(children: [
+              Icon(Icons.toys_rounded, size: 72, color: Kid.lavender.withValues(alpha: .5))
+                  .animate(onPlay: (c) => loopIfEnabled(c, reverse: true))
+                  .moveY(begin: -4, end: 4, duration: 1200.ms),
+              const SizedBox(height: 12),
+              const Text('Aucun enfant. Ajoutez une fiche avec le bouton +.', textAlign: TextAlign.center),
+            ]),
           ),
-        for (final c in list)
-          ListTile(
-            leading: ChildDot(c.color, size: 28),
-            title: Text(c.firstName),
-            subtitle: Text(_subtitle(s, c)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => ChildDetailScreen(store: s, childId: c.id))),
-          ),
+        for (final (i, c) in list.indexed)
+          Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Kid.radius),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => ChildDetailScreen(store: s, childId: c.id))),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(children: [
+                  Hero(tag: 'avatar-${c.id}', child: ChildAvatar(name: c.firstName, color: c.color, size: 54)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(c.firstName, style: tt.titleLarge),
+                      Text(_subtitle(s, c), style: tt.bodySmall),
+                    ]),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: Color(c.color)),
+                ]),
+              ),
+            ),
+          ).entrance(i),
       ]),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => editChild(context, s, null),
-        child: const Icon(Icons.add),
-      ),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Enfant'),
+      ).animate().scale(delay: 300.ms, duration: 400.ms, curve: Curves.elasticOut),
     );
   }
 
@@ -57,6 +115,22 @@ class _ChildrenTabState extends State<ChildrenTab> {
     return '${t.type == ContractType.fullYear ? 'Année complète' : 'Année incomplète'} · '
         '${hrs(t.weeklyHours)}/sem · ${eur(t.monthlySalary)}/mois';
   }
+}
+
+class _Pill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _Pill({required this.icon, required this.text});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .85), borderRadius: BorderRadius.circular(40)),
+        child: Row(children: [
+          Icon(icon, size: 18, color: Kid.coral),
+          const SizedBox(width: 6),
+          Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5), maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ]),
+      );
 }
 
 Future<void> editChild(BuildContext context, NannyStore s, Child? c) async {
@@ -114,7 +188,7 @@ class ChildDetailScreen extends StatelessWidget {
         final contracts = store.contractsOf(childId);
         return Scaffold(
           appBar: AppBar(
-            title: Row(children: [ChildDot(c.color), const SizedBox(width: 8), Text(c.firstName)]),
+            title: Row(children: [Hero(tag: 'avatar-${c.id}', child: ChildAvatar(name: c.firstName, color: c.color, size: 36)), const SizedBox(width: 10), Text(c.firstName)]),
             actions: [
               IconButton(icon: const Icon(Icons.edit), onPressed: () => editChild(context, store, c)),
               IconButton(

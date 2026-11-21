@@ -9,6 +9,7 @@ import 'data/backend.dart';
 import 'data/updater.dart';
 import 'data/nanny_store.dart';
 import 'presentation/auth_screen.dart';
+import 'presentation/theme.dart';
 import 'presentation/nanny/nanny_home.dart';
 import 'presentation/parent/parent_home.dart';
 
@@ -53,7 +54,7 @@ class AssmatApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF7E57C2), useMaterial3: true),
+      theme: buildKidTheme(),
       home: firebaseOk ? const AuthGate() : NannyHome(store: NannyStore(LocalFileBackend())),
     );
   }
