@@ -2,6 +2,7 @@
 // puis laisse l'app ouverte pour des captures d'écran.
 import 'package:assmatia/main.dart' as app;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -14,7 +15,9 @@ void main() {
     await app.main();
     await t.pumpAndSettle();
     await FirebaseAuth.instance.signOut();
-    await t.pump(const Duration(seconds: 6)); // capture : connexion
+    await t.pump(const Duration(seconds: 2));
+    debugPrint('SHOT:connexion');
+    await t.pump(const Duration(seconds: 6));
     await signUp(t, 'vitrine${DateTime.now().millisecondsSinceEpoch}@test.local');
     await tapText(t, 'Je suis assistante maternelle');
     await t.pump(const Duration(seconds: 3));
@@ -30,12 +33,19 @@ void main() {
       await pickDate(t, 'Date de début', '01/09/2026');
       await tapText(t, 'Enregistrer');
       await pumpUntil(t, find.text('Du 01/09/2026'));
+      if (name == 'Jade') {
+        await t.pump(const Duration(seconds: 1));
+        debugPrint('SHOT:fiche');
+        await t.pump(const Duration(seconds: 6));
+      }
       await t.tap(find.byType(BackButton).first);
       await t.pumpAndSettle();
     }
     for (final tab in ['Enfants', 'Planning', 'Suivi', 'Récaps', 'Fiscal']) {
       await tapText(t, tab);
-      await t.pump(const Duration(seconds: 7)); // capture
+      await t.pump(const Duration(seconds: 1));
+      debugPrint('SHOT:${tab.toLowerCase()}');
+      await t.pump(const Duration(seconds: 6));
     }
   }, timeout: const Timeout(Duration(minutes: 5)));
 }
