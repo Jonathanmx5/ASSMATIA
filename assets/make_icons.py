@@ -15,5 +15,5 @@ def render(size, bg, pad=0.1, out=None):
     img=img.resize((size,size),Image.LANCZOS)
     img.save(out)
 render(1024,'#FFFFFF',pad=.05,out='assets/icon_full.png')
-render(1024,(0,0,0,0),pad=.15,out='assets/icon_fg.png')   # adaptive foreground (safe zone)
+render(1024,(0,0,0,0),pad=.19,out='assets/icon_fg.png')   # adaptive foreground (safe zone)
 render(512,(0,0,0,0),pad=.02,out='assets/logo_a8.png')     # in-app logo
