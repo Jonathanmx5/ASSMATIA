@@ -113,6 +113,8 @@ class SummaryCard extends StatelessWidget {
           if (abs > 0 && pot > 0)
             Text('Cour de cassation : mensualisation × ${hoursFmt.format(abs)} h / ${hoursFmt.format(pot)} h potentielles',
                 style: const TextStyle(fontSize: 11)),
+          if (_d('extraHours') > 0)
+            Line('Heures en plus (${hrs(_d('extraHours'))})', '+ ${eur(_d('extraPay'))}'),
           Line('Salaire brut du mois', eur(_d('grossSalary'))),
           Line('Salaire net estimé', eur(net), bold: true),
           Line('Indemnités de repas', eur(meals)),

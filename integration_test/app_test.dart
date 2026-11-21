@@ -77,7 +77,10 @@ Future<void> signUp(WidgetTester t, String email) async {
   await tapText(t, 'Créer un compte');
   await fill(t, 'E-mail', email);
   await fill(t, 'Mot de passe', pwd);
-  await t.tap(find.widgetWithText(OutlinedButton, 'Créer un compte'));
+  final btn = find.widgetWithText(OutlinedButton, 'Créer un compte');
+  await t.ensureVisible(btn);
+  await t.pumpAndSettle();
+  await t.tap(btn);
   await t.pumpAndSettle();
 }
 
@@ -158,34 +161,50 @@ void main() {
     await tapText(t, 'Planning');
     expect(find.textContaining('Lina'), findsWidgets);
 
-    // Suivi : vendredi 20/11 absent déduit.
-    await tapText(t, 'Suivi');
+    // Calendrier des exceptions (novembre 2026) : Lina absente le vendredi 20,
+    // 1 h en plus le jeudi 19 (retard des parents).
+    await tapText(t, 'Absences');
     final now = DateTime.now();
-    final target = DateTime(2026, 11, 20);
-    var diff = DateTime(now.year, now.month, now.day).difference(target).inDays;
-    while (diff > 0) {
-      await t.tap(find.byIcon(Icons.chevron_left));
+    var shift = (now.year - 2026) * 12 + now.month - 11;
+    while (shift > 0) {
+      await t.tap(find.byIcon(Icons.chevron_left_rounded).first);
       await t.pumpAndSettle();
-      diff--;
+      shift--;
     }
-    while (diff < 0) {
-      await t.tap(find.byIcon(Icons.chevron_right));
+    while (shift < 0) {
+      await t.tap(find.byIcon(Icons.chevron_right_rounded).first);
       await t.pumpAndSettle();
-      diff++;
+      shift++;
     }
-    await pumpUntil(t, find.text('Vendredi 20/11/2026'));
-    await tapText(t, 'Lina — Selon planning');
-    await tapText(t, 'Absent (déduit)');
-    await tapText(t, 'Enregistrer');
-    await pumpUntil(t, find.textContaining('Absence déduite 9 h'));
+    await pumpUntil(t, find.text('novembre 2026'));
+    await t.tap(find.widgetWithText(FilterChip, 'Lina'));
+    await t.pumpAndSettle();
+    Finder day(String n) => find.descendant(of: find.byType(GridView), matching: find.text(n));
+    await t.tap(day('20'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, 'Absent (déduit)'));
+    await t.pumpAndSettle();
+    await pumpUntil(t, find.textContaining('1 journée(s) mise(s) à jour'));
+    await t.tap(day('19'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, 'Heures en plus'));
+    await t.pumpAndSettle();
+    await t.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), '1');
+    await tapText(t, 'Valider');
+    await pumpUntil(t, find.textContaining('1 journée(s) mise(s) à jour'));
+    await reveal(t, find.textContaining('Lina · Vendredi 20/11/2026'));
+    await reveal(t, find.textContaining('+ 1 h'));
 
-    // Récap novembre : 975 € mensualisés, déduction 975 × 9 / 189 = 46,43 €.
+    // Récap novembre : 975 € mensualisés, déduction 975 × 9 / 189 = 46,43 €,
+    // + 1 h à 5 € (semaine sous 45 h) → brut 933,57 €.
     await tapText(t, 'Récaps');
     await pumpUntil(t, find.text('novembre 2026'));
-    expect(money('975,00 €'), findsOneWidget);
+    expect(money('975,00 €'), findsWidgets);
     expect(money('- 46,43 €'), findsOneWidget);
-    expect(money('928,57 €'), findsOneWidget); // brut du mois
+    expect(money('+ 5,00 €'), findsOneWidget);
+    expect(money('933,57 €'), findsWidgets); // brut du mois
     expect(find.textContaining('9 h / 189 h potentielles'), findsOneWidget);
+    expect(find.text('Simulation fin de mois'), findsWidgets);
 
     // Octobre : validé puis figé.
     await t.tap(find.byIcon(Icons.chevron_left).first);
@@ -241,7 +260,10 @@ void main() {
     Future<void> signIn(String email) async {
       await fill(t, 'E-mail', email);
       await fill(t, 'Mot de passe', pwd);
-      await t.tap(find.widgetWithText(OutlinedButton, 'Se connecter'));
+      final btn = find.widgetWithText(OutlinedButton, 'Se connecter');
+      await t.ensureVisible(btn);
+      await t.pumpAndSettle();
+      await t.tap(btn);
       await t.pumpAndSettle();
     }
 

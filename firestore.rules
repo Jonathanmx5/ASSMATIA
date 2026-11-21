@@ -40,11 +40,11 @@ service cloud.firestore {
 
     // Données privées de l'assistante maternelle (fiscal inclus).
     match /{col}/{id} {
-      allow read: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries']
+      allow read: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries', 'paidLeaves']
         && isOwner();
-      allow create, update: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries']
+      allow create, update: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries', 'paidLeaves']
         && isNanny() && writesAsOwner();
-      allow delete: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries']
+      allow delete: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries', 'paidLeaves']
         && isOwner();
     }
 

@@ -30,6 +30,7 @@ class NannyStore extends ChangeNotifier {
   final Map<int, double> incomeOverrides = {};
   final Map<String, LeavePeriod> leaves = {};
   final Map<String, MonthlySummary> locked = {};
+  final Map<String, PaidLeaveEntry> paidLeaves = {};
   double netRatio = kDefaultNetRatio;
 
   /// Date d'arrêté des calculs (aujourd'hui) ; surchargeable pour les tests.
@@ -58,6 +59,7 @@ class NannyStore extends ChangeNotifier {
     logs..clear()..addAll(parse(kLogs, DailyLog.fromJson));
     leaves..clear()..addAll(parse(kLeaves, LeavePeriod.fromJson));
     locked..clear()..addAll(parse(kLocked, MonthlySummary.fromJson));
+    paidLeaves..clear()..addAll(parse(kPaidLeaves, PaidLeaveEntry.fromJson));
     taxScales.clear();
     kDefaultSmic.forEach((y, s) => taxScales[y] = TaxScale(y, s));
     for (final v in (all[kTaxScales] ?? {}).values) {
@@ -120,6 +122,80 @@ class NannyStore extends ChangeNotifier {
       acc = acc == null ? s : acc + s;
     }
     return acc;
+  }
+
+  /// Simulation : le mois complet tel que prévu au planning (absences et
+  /// retards déjà saisis compris).
+  MonthlySummary? projectedSummary(String childId, int year, int month) {
+    final first = DateTime(year, month, 1), last = DateTime(year, month + 1, 0);
+    final c0 = ctx.projected();
+    MonthlySummary? acc;
+    for (final c in contractsOf(childId)) {
+      if (c.startDate.isAfter(last) || (c.endDate != null && c.endDate!.isBefore(first))) continue;
+      final s = computeMonth(c, year, month, _monthLogs(childId, year, month), ctx: c0);
+      acc = acc == null ? s : acc + s;
+    }
+    return acc;
+  }
+
+  List<PaidLeaveEntry> paidLeavesOf(String contractId) =>
+      paidLeaves.values.where((e) => e.contractId == contractId).toList()..sort((a, b) => a.date.compareTo(b.date));
+
+  Future<void> savePaidLeave(PaidLeaveEntry e) async {
+    paidLeaves[e.id] = e;
+    _write([WriteOp(kPaidLeaves, e.id, e.toJson())]);
+  }
+
+  Future<void> deletePaidLeave(PaidLeaveEntry e) async {
+    paidLeaves.remove(e.id);
+    _write([WriteOp(kPaidLeaves, e.id, null)]);
+  }
+
+  /// Congés sur plusieurs jours pour un enfant : une période par plage continue.
+  Future<void> addLeaveDays(String childId, List<DateTime> days, String label) async {
+    final sorted = [...days.map(dayOnly)]..sort();
+    final ops = <WriteOp>[];
+    var i = 0;
+    while (i < sorted.length) {
+      var j = i;
+      while (j + 1 < sorted.length && sorted[j + 1].difference(sorted[j]).inDays == 1) {
+        j++;
+      }
+      final p = LeavePeriod(
+          id: '${childId}_${dateKey(sorted[i])}_${DateTime.now().microsecondsSinceEpoch}',
+          from: sorted[i],
+          to: sorted[j],
+          label: label,
+          childIds: [childId]);
+      leaves[p.id] = p;
+      ops.add(WriteOp(kLeaves, p.id, p.toJson()));
+      i = j + 1;
+    }
+    _write(ops);
+    _publishMonths({for (final d in sorted) (childId, d.year, d.month)});
+  }
+
+  /// Retire les congés propres à un enfant sur ces jours (découpe les périodes).
+  Future<void> removeLeaveDays(String childId, List<DateTime> days) async {
+    final set = {for (final d in days) dateKey(d)};
+    final ops = <WriteOp>[];
+    for (final p in leaves.values.where((p) => p.childIds.length == 1 && p.childIds.first == childId).toList()) {
+      final covered = <DateTime>[];
+      for (var d = dayOnly(p.from); !d.isAfter(dayOnly(p.to)); d = d.add(const Duration(days: 1))) {
+        covered.add(d);
+      }
+      if (!covered.any((d) => set.contains(dateKey(d)))) continue;
+      leaves.remove(p.id);
+      ops.add(WriteOp(kLeaves, p.id, null));
+      final keep = covered.where((d) => !set.contains(dateKey(d))).toList();
+      if (keep.isNotEmpty) {
+        _write(ops.toList());
+        ops.clear();
+        await addLeaveDays(childId, keep, p.label);
+      }
+    }
+    if (ops.isNotEmpty) _write(ops);
+    _publishMonths({for (final d in days) (childId, d.year, d.month)});
   }
 
   bool isLocked(String childId, int year, int month) =>
@@ -241,6 +317,7 @@ class NannyStore extends ChangeNotifier {
         kLogs: {for (final e in logs.entries) e.key: e.value.toJson()},
         kLeaves: {for (final e in leaves.entries) e.key: e.value.toJson()},
         kLocked: {for (final e in locked.entries) e.key: e.value.toJson()},
+        kPaidLeaves: {for (final e in paidLeaves.entries) e.key: e.value.toJson()},
         kTaxScales: {for (final e in taxScales.entries) '${e.key}': e.value.toJson()},
         kSettings: {
           'general': {'netRatio': netRatio},

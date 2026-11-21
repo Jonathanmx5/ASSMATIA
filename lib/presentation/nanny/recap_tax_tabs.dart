@@ -4,6 +4,7 @@ import '../../data/nanny_store.dart';
 import '../../domain/engine.dart';
 import '../../domain/models.dart';
 import '../common.dart';
+import '../theme.dart';
 import 'daily_tab.dart';
 
 class RecapTab extends StatefulWidget {
@@ -24,7 +25,28 @@ class _RecapTabState extends State<RecapTab> {
       final sm = s.summary(c.id, month.year, month.month);
       if (sm == null) continue;
       final locked = s.isLocked(c.id, month.year, month.month);
+      final proj = sm.provisional && !locked ? s.projectedSummary(c.id, month.year, month.month) : null;
       cards.add(SummaryCard(title: c.firstName, color: c.color, s: sm.toJson(), footer: [
+        if (proj != null)
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Kid.mint.withValues(alpha: .15), borderRadius: BorderRadius.circular(18)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.auto_graph_rounded, color: Kid.mint),
+                SizedBox(width: 6),
+                Text('Simulation fin de mois', style: TextStyle(fontWeight: FontWeight.w800)),
+              ]),
+              const Text('Si la suite du mois se déroule selon le planning (absences et retards déjà notés compris).',
+                  style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 6),
+              Line('Salaire brut prévu', eur(proj.grossSalary)),
+              Line('Salaire net prévu', eur(proj.netSalary)),
+              Line('Indemnités prévues', eur(proj.allowancesTotal)),
+              Line('Total prévu à verser', eur(proj.totalToPay), bold: true),
+            ]),
+          ),
         const SizedBox(height: 8),
         Wrap(spacing: 8, children: [
           OutlinedButton.icon(

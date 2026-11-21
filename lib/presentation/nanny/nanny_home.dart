@@ -6,7 +6,7 @@ import '../common.dart';
 import '../theme.dart';
 import '../update_widgets.dart';
 import 'children_screens.dart';
-import 'daily_tab.dart';
+import 'calendar_tab.dart';
 import 'planning_tab.dart';
 import 'recap_tax_tabs.dart';
 import 'settings_screen.dart';
@@ -23,7 +23,7 @@ class NannyHome extends StatefulWidget {
 
 class _NannyHomeState extends State<NannyHome> {
   int tab = 0;
-  static const titles = ['Enfants', 'Planning', 'Suivi du jour', 'Récapitulatifs', 'Bilan fiscal'];
+  static const titles = ['Enfants', 'Planning', 'Absences et retards', 'Récapitulatifs', 'Bilan fiscal'];
 
   @override
   void initState() {
@@ -104,7 +104,7 @@ class _NannyHomeState extends State<NannyHome> {
                 : switch (tab) {
                     0 => ChildrenTab(store: s),
                     1 => PlanningTab(store: s),
-                    2 => DailyTab(store: s),
+                    2 => CalendarTab(store: s),
                     3 => RecapTab(store: s),
                     _ => TaxTab(store: s),
                   }),
@@ -114,7 +114,7 @@ class _NannyHomeState extends State<NannyHome> {
           destinations: const [
             NavigationDestination(icon: Icon(Icons.child_care_rounded), selectedIcon: Icon(Icons.child_care_rounded, color: Kid.coral), label: 'Enfants'),
             NavigationDestination(icon: Icon(Icons.calendar_month_rounded), selectedIcon: Icon(Icons.calendar_month_rounded, color: Kid.sky), label: 'Planning'),
-            NavigationDestination(icon: Icon(Icons.checklist_rounded), selectedIcon: Icon(Icons.checklist_rounded, color: Kid.mint), label: 'Suivi'),
+            NavigationDestination(icon: Icon(Icons.event_note_rounded), selectedIcon: Icon(Icons.event_note_rounded, color: Kid.mint), label: 'Absences'),
             NavigationDestination(icon: Icon(Icons.savings_rounded), selectedIcon: Icon(Icons.savings_rounded, color: Kid.lavender), label: 'Récaps'),
             NavigationDestination(icon: Icon(Icons.account_balance_rounded), selectedIcon: Icon(Icons.account_balance_rounded, color: Kid.coral), label: 'Fiscal'),
           ],

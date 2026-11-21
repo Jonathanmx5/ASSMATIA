@@ -81,7 +81,7 @@ class _ContractEditScreenState extends State<ContractEditScreen> {
           },
         ),
         const Divider(),
-        TermsEditor(initial: terms, onChanged: (t) => terms = t),
+        TermsEditor(initial: terms, netRatio: widget.store.netRatio, onChanged: (t) => terms = t),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () async {
@@ -162,7 +162,7 @@ class _AmendmentEditScreenState extends State<AmendmentEditScreen> {
             controller: note,
             decoration: const InputDecoration(labelText: 'Objet de l\'avenant', border: OutlineInputBorder())),
         const SizedBox(height: 8),
-        TermsEditor(key: editorKey, initial: terms, onChanged: (t) => terms = t),
+        TermsEditor(key: editorKey, initial: terms, netRatio: widget.store.netRatio, onChanged: (t) => terms = t),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () async {

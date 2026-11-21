@@ -281,6 +281,8 @@ class _ContractCard extends StatelessWidget {
               onTap: () => Navigator.push(context, MaterialPageRoute(
                   builder: (_) => AmendmentEditScreen(store: store, contract: ct, existing: a))),
             ),
+          const Divider(),
+          _PaidLeaveSection(store: store, contract: ct),
           TextButton.icon(
             icon: const Icon(Icons.add),
             label: const Text('Ajouter un avenant'),
@@ -381,3 +383,130 @@ Future<void> shareInvite(Child child, String email) => SharePlus.instance.share(
           "3. Choisissez « Je suis parent employeur ».\n"
           "Les informations sont en lecture seule.",
     ));
+
+/// Congés payés d'un contrat : estimation de la période en cours et historique
+/// (solde repris d'un contrat antérieur, jours pris, paiements).
+class _PaidLeaveSection extends StatelessWidget {
+  final NannyStore store;
+  final Contract contract;
+  const _PaidLeaveSection({required this.store, required this.contract});
+
+  static String kindLabel(PaidLeaveKind k) => switch (k) {
+        PaidLeaveKind.openingBalance => 'Solde repris',
+        PaidLeaveKind.taken => 'Congés pris',
+        PaidLeaveKind.payment => 'Paiement de congés',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = store.paidLeavesOf(contract.id);
+    final l = PaidLeaveLedger.of(entries);
+    final now = DateTime.now();
+    final refEnd = now.month >= 6 ? now.year + 1 : now.year;
+    final est = store.paidLeave(contract, refEnd);
+    final tt = Theme.of(context).textTheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Congés payés', style: tt.titleSmall),
+      if (est != null)
+        Text('Période en cours (${fmtDate(est.refStart)} → ${fmtDate(est.refEnd)}) : '
+            '${est.daysAcquired} j acquis estimés · ${eur(est.retained)} (10 % ou maintien)',
+            style: const TextStyle(fontSize: 12)),
+      if (entries.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Line('Solde repris (avant ASSMATIA)', '${hoursFmt.format(l.openingDays)} j · ${eur(l.openingAmount)}'),
+        Line('Jours pris', '${hoursFmt.format(l.takenDays)} j'),
+        Line('Montants versés', eur(l.paidAmount)),
+        if (est != null && !est.includedInMonthly)
+          Line('Reste à verser (estimation)', eur(round2((est.retained + l.openingAmount - l.paidAmount).clamp(0, double.infinity))),
+              bold: true),
+      ],
+      for (final e in entries)
+        ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(switch (e.kind) {
+            PaidLeaveKind.openingBalance => Icons.history_rounded,
+            PaidLeaveKind.taken => Icons.beach_access_rounded,
+            PaidLeaveKind.payment => Icons.payments_rounded,
+          }, color: Kid.sun),
+          title: Text('${kindLabel(e.kind)} · ${fmtDate(e.date)}'),
+          subtitle: Text([
+            if (e.days > 0) '${hoursFmt.format(e.days)} j',
+            if (e.amount > 0) eur(e.amount),
+            if (e.note.isNotEmpty) e.note,
+          ].join(' · ')),
+          trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => store.deletePaidLeave(e)),
+        ),
+      Wrap(spacing: 6, children: [
+        for (final k in PaidLeaveKind.values)
+          ActionChip(
+            avatar: const Icon(Icons.add, size: 16),
+            label: Text(kindLabel(k)),
+            onPressed: () => _add(context, k),
+          ),
+      ]),
+    ]);
+  }
+
+  Future<void> _add(BuildContext context, PaidLeaveKind k) async {
+    var date = dayOnly(DateTime.now());
+    final days = TextEditingController();
+    final amount = TextEditingController();
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(kindLabel(k)),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (k == PaidLeaveKind.openingBalance)
+                const Text('Congés acquis et non encore payés au démarrage du suivi dans ASSMATIA '
+                    '(contrat antérieur, période en cours).', style: TextStyle(fontSize: 12)),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Date'),
+                trailing: Text(fmtDate(date)),
+                onTap: () async {
+                  final d = await pickDate(ctx, date);
+                  if (d != null) setD(() => date = d);
+                },
+              ),
+              if (k != PaidLeaveKind.payment)
+                TextField(
+                  controller: days,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Jours ouvrables', suffixText: 'j'),
+                ),
+              if (k != PaidLeaveKind.taken) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                      labelText: k == PaidLeaveKind.payment ? 'Montant brut versé' : 'Montant brut dû', suffixText: '€'),
+                ),
+              ],
+              const SizedBox(height: 8),
+              TextField(controller: note, decoration: const InputDecoration(labelText: 'Note (facultatif)')),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Enregistrer')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    await store.savePaidLeave(PaidLeaveEntry(
+      id: newId(),
+      contractId: contract.id,
+      date: date,
+      kind: k,
+      days: parseNum(days.text) ?? 0,
+      amount: parseNum(amount.text) ?? 0,
+      note: note.text.trim(),
+    ));
+  }
+}

@@ -2,7 +2,6 @@
 // puis laisse l'app ouverte pour des captures d'écran.
 import 'package:assmatia/main.dart' as app;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -41,7 +40,7 @@ void main() {
       await t.tap(find.byType(BackButton).first);
       await t.pumpAndSettle();
     }
-    for (final tab in ['Enfants', 'Planning', 'Suivi', 'Récaps', 'Fiscal']) {
+    for (final tab in ['Enfants', 'Planning', 'Absences', 'Récaps', 'Fiscal']) {
       await tapText(t, tab);
       await t.pump(const Duration(seconds: 1));
       debugPrint('SHOT:${tab.toLowerCase()}');

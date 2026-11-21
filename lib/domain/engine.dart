@@ -49,6 +49,9 @@ class CalcContext {
   final Map<int, Set<String>> _holidayCache = {};
   CalcContext({this.leaves = const [], this.asOf, this.holidaysOff = true, this.netRatio = kDefaultNetRatio});
 
+  /// Même contexte sans date d'arrêté : simulation du mois complet selon le planning.
+  CalcContext projected() => CalcContext(leaves: leaves, holidaysOff: holidaysOff, netRatio: netRatio);
+
   DayKind kindOf(String childId, DateTime d) {
     if (leaves.any((l) => l.covers(childId, d))) return DayKind.leave;
     if (holidaysOff &&
@@ -69,8 +72,9 @@ class DayResult {
   final double absenceDeductedHours;
   final double meal;
   final double maintenance;
+  final double extraHours;
   const DayResult(this.date, this.plannedHours, this.workedHours,
-      this.absenceDeductedHours, this.meal, this.maintenance, {this.kind = DayKind.normal});
+      this.absenceDeductedHours, this.meal, this.maintenance, {this.kind = DayKind.normal, this.extraHours = 0});
 }
 
 /// Un pointage explicite prime toujours sur la nature du jour.
@@ -92,6 +96,8 @@ DayResult computeDay(ContractTerms t, DateTime d, DailyLog? log, {DayKind kind =
     case DayStatus.notScheduled:
       worked = 0;
   }
+  final extra = log?.status == DayStatus.present ? log!.extraHours : 0.0;
+  worked += extra;
   double meal = 0, maint = 0;
   if (worked > 0) {
     meal = log?.mealOverride ?? t.allowances.mealPerDay;
@@ -99,7 +105,7 @@ DayResult computeDay(ContractTerms t, DateTime d, DailyLog? log, {DayKind kind =
     maint = log?.maintenanceOverride ??
         (byHour > t.allowances.maintenancePerDay ? byHour : t.allowances.maintenancePerDay);
   }
-  return DayResult(d, planned, worked, absence, meal, maint, kind: kind);
+  return DayResult(d, planned, worked, absence, meal, maint, kind: kind, extraHours: extra);
 }
 
 /// Montant à déduire (Cour de cassation), arrondi au centime.
@@ -118,7 +124,9 @@ class MonthlySummary {
   final int month;
   final double baseSalary; // mensualisation brute (proratisée si besoin)
   final double absenceDeduction;
-  final double grossSalary; // brut du mois = base - déductions
+  final double extraHours; // heures en plus (retards)
+  final double extraPay; // rémunération des heures en plus (majorées au-delà de 45 h/sem.)
+  final double grossSalary; // brut du mois = base - déductions + heures en plus
   final double netSalary; // net estimé = brut × taux de conversion
   final double plannedHours;
   final double workedHours;
@@ -136,6 +144,8 @@ class MonthlySummary {
     required this.month,
     required this.baseSalary,
     required this.absenceDeduction,
+    this.extraHours = 0,
+    this.extraPay = 0,
     required this.grossSalary,
     required this.netSalary,
     required this.plannedHours,
@@ -163,6 +173,8 @@ class MonthlySummary {
         month: month,
         baseSalary: round2(baseSalary + b.baseSalary),
         absenceDeduction: round2(absenceDeduction + b.absenceDeduction),
+        extraHours: round2(extraHours + b.extraHours),
+        extraPay: round2(extraPay + b.extraPay),
         grossSalary: round2(grossSalary + b.grossSalary),
         netSalary: round2(netSalary + b.netSalary),
         plannedHours: round2(plannedHours + b.plannedHours),
@@ -182,6 +194,8 @@ class MonthlySummary {
         'month': month,
         'baseSalary': baseSalary,
         'absenceDeduction': absenceDeduction,
+        'extraHours': extraHours,
+        'extraPay': extraPay,
         'grossSalary': grossSalary,
         'netSalary': netSalary,
         'plannedHours': plannedHours,
@@ -203,6 +217,8 @@ class MonthlySummary {
       month: (j['month'] as num).toInt(),
       baseSalary: d('baseSalary'),
       absenceDeduction: d('absenceDeduction'),
+      extraHours: d('extraHours'),
+      extraPay: d('extraPay'),
       grossSalary: d('grossSalary'),
       netSalary: d('netSalary'),
       plannedHours: d('plannedHours'),
@@ -234,6 +250,10 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
   int present = 0;
   var provisional = false;
   final potentialCache = <WeeklySchedule, double>{};
+  // Heures en plus regroupées par semaine (lundi) pour la majoration > 45 h.
+  final weekWorked = <String, double>{};
+  final weekExtra = <String, double>{};
+  final weekTerms = <String, ContractTerms>{};
   ContractTerms? last;
   for (final d in daysOfMonth(year, month)) {
     if (!c.isActiveOn(d)) continue;
@@ -250,6 +270,12 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
       salary += t.monthlySalary * r.plannedHours / pot;
       deduction += t.monthlySalary * r.absenceDeductedHours / pot;
     }
+    final wk = dateKey(d.subtract(Duration(days: d.weekday - 1)));
+    weekWorked[wk] = (weekWorked[wk] ?? 0) + r.workedHours;
+    if (r.extraHours > 0) {
+      weekExtra[wk] = (weekExtra[wk] ?? 0) + r.extraHours;
+      weekTerms[wk] = t;
+    }
     planned += r.plannedHours;
     worked += r.workedHours;
     absence += r.absenceDeductedHours;
@@ -257,15 +283,25 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
     maint += r.maintenance;
     if (r.workedHours > 0) present++;
   }
+  double extraH = 0, extraPay = 0;
+  weekExtra.forEach((wk, ex) {
+    final t = weekTerms[wk]!;
+    final major = math.min(ex, math.max(0, weekWorked[wk]! - 45)).toDouble();
+    extraH += ex;
+    extraPay += (ex - major) * t.hourlyRate + major * t.hourlyRate * (1 + t.allowances.overtimeMajorationPct / 100);
+  });
   final base = round2(salary);
   final ded = round2(deduction);
-  final gross = round2(base - ded);
+  final xp = round2(extraPay);
+  final gross = round2(base - ded + xp);
   return MonthlySummary(
     childId: c.childId,
     year: year,
     month: month,
     baseSalary: base,
     absenceDeduction: ded,
+    extraHours: round2(extraH),
+    extraPay: xp,
     grossSalary: gross,
     netSalary: round2(gross * ctx.netRatio),
     plannedHours: round2(planned),

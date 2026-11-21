@@ -86,8 +86,10 @@ class ScheduleEditor extends StatelessWidget {
 /// Éditeur des paramètres d'un contrat (ou d'un avenant).
 class TermsEditor extends StatefulWidget {
   final ContractTerms initial;
+  /// Taux de conversion brut → net (Réglages), pour la saisie en net.
+  final double netRatio;
   final ValueChanged<ContractTerms> onChanged;
-  const TermsEditor({super.key, required this.initial, required this.onChanged});
+  const TermsEditor({super.key, required this.initial, required this.onChanged, this.netRatio = .78});
   @override
   State<TermsEditor> createState() => _TermsEditorState();
 }
@@ -100,6 +102,8 @@ class _TermsEditorState extends State<TermsEditor> {
   late final meal = TextEditingController(text: '${widget.initial.allowances.mealPerDay}');
   late final mDay = TextEditingController(text: '${widget.initial.allowances.maintenancePerDay}');
   late final mHour = TextEditingController(text: '${widget.initial.allowances.maintenancePerHour}');
+  late final net = TextEditingController(text: '${grossToNet(widget.initial.hourlyRate, widget.netRatio)}');
+  late final maj = TextEditingController(text: hoursFmt.format(widget.initial.allowances.overtimeMajorationPct));
 
   ContractTerms get current => ContractTerms(
         type: type,
@@ -110,6 +114,7 @@ class _TermsEditorState extends State<TermsEditor> {
           mealPerDay: parseNum(meal.text) ?? 0,
           maintenancePerDay: parseNum(mDay.text) ?? 0,
           maintenancePerHour: parseNum(mHour.text) ?? 0,
+          overtimeMajorationPct: parseNum(maj.text) ?? 10,
         ),
       );
 
@@ -141,7 +146,41 @@ class _TermsEditorState extends State<TermsEditor> {
         },
       ),
       const SizedBox(height: 8),
-      _num(rate, 'Taux horaire brut', suffix: '€/h'),
+      Row(children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: TextField(
+              controller: net,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Taux horaire net', suffixText: '€/h'),
+              onChanged: (v) {
+                final n = parseNum(v);
+                if (n != null) rate.text = '${netToGross(n, widget.netRatio)}';
+                _emit();
+              },
+            ),
+          ),
+        ),
+        const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(Icons.swap_horiz_rounded)),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: TextField(
+              controller: rate,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Taux horaire brut', suffixText: '€/h'),
+              onChanged: (v) {
+                final g = parseNum(v);
+                if (g != null) net.text = '${grossToNet(g, widget.netRatio)}';
+                _emit();
+              },
+            ),
+          ),
+        ),
+      ]),
+      Text('Conversion automatique avec le taux net de ${hoursFmt.format(widget.netRatio * 100)} % (Réglages).',
+          style: const TextStyle(fontSize: 12)),
       if (type == ContractType.partialYear)
         _num(weeks, 'Semaines programmées par an', suffix: 'sem.'),
       const SizedBox(height: 8),
@@ -157,6 +196,7 @@ class _TermsEditorState extends State<TermsEditor> {
       _num(meal, 'Repas par jour d\'accueil', suffix: '€'),
       _num(mDay, 'Entretien : forfait minimum par jour', suffix: '€'),
       _num(mHour, 'Entretien : montant par heure d\'accueil', suffix: '€/h'),
+      _num(maj, 'Majoration des heures au-delà de 45 h/semaine', suffix: '%'),
       const Text('Entretien du jour = max(forfait, montant horaire × heures).',
           style: TextStyle(fontSize: 12)),
       const SizedBox(height: 8),

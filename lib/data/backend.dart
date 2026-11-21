@@ -16,7 +16,8 @@ const kTaxScales = 'taxScales';
 const kSettings = 'settings';
 const kLeaves = 'leavePeriods';
 const kLocked = 'lockedSummaries';
-const kPrivateCollections = [kChildren, kContracts, kLogs, kTaxScales, kSettings, kLeaves, kLocked];
+const kPaidLeaves = 'paidLeaves';
+const kPrivateCollections = [kChildren, kContracts, kLogs, kTaxScales, kSettings, kLeaves, kLocked, kPaidLeaves];
 
 /// Collections partagées en lecture seule avec les parents.
 const kSharedPlannings = 'sharedPlannings';

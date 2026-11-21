@@ -62,20 +62,25 @@ class Allowances {
   final double mealPerDay;
   final double maintenancePerDay;
   final double maintenancePerHour;
+  /// Majoration (%) des heures au-delà de 45 h par semaine (fixée au contrat).
+  final double overtimeMajorationPct;
   const Allowances(
       {this.mealPerDay = 0,
       this.maintenancePerDay = 0,
-      this.maintenancePerHour = 0});
+      this.maintenancePerHour = 0,
+      this.overtimeMajorationPct = 10});
 
   Map<String, dynamic> toJson() => {
         'mealPerDay': mealPerDay,
         'maintenancePerDay': maintenancePerDay,
         'maintenancePerHour': maintenancePerHour,
+        'overtimeMajorationPct': overtimeMajorationPct,
       };
   factory Allowances.fromJson(Map<String, dynamic>? j) => Allowances(
         mealPerDay: ((j?['mealPerDay']) ?? 0).toDouble(),
         maintenancePerDay: ((j?['maintenancePerDay']) ?? 0).toDouble(),
         maintenancePerHour: ((j?['maintenancePerHour']) ?? 0).toDouble(),
+        overtimeMajorationPct: ((j?['overtimeMajorationPct']) ?? 10).toDouble(),
       );
 }
 
@@ -280,6 +285,7 @@ class DailyLog {
   final DayStatus status;
   final List<TimeSlot>? actualSlots; // null = planning théorique
   final double absenceHours; // heures d'absence (prévues au planning) à déduire
+  final double extraHours; // heures en plus (retard des parents)
   final double? mealOverride; // indemnité repas saisie manuellement
   final double? maintenanceOverride;
   final String note;
@@ -289,6 +295,7 @@ class DailyLog {
     this.status = DayStatus.present,
     this.actualSlots,
     this.absenceHours = 0,
+    this.extraHours = 0,
     this.mealOverride,
     this.maintenanceOverride,
     this.note = '',
@@ -302,6 +309,7 @@ class DailyLog {
         'status': status.name,
         'actualSlots': actualSlots?.map((s) => s.toJson()).toList(),
         'absenceHours': absenceHours,
+        'extraHours': extraHours,
         'mealOverride': mealOverride,
         'maintenanceOverride': maintenanceOverride,
         'note': note,
@@ -314,6 +322,7 @@ class DailyLog {
             ?.map((s) => TimeSlot.fromJson(Map<String, dynamic>.from(s)))
             .toList(),
         absenceHours: ((j['absenceHours'] ?? 0) as num).toDouble(),
+        extraHours: ((j['extraHours'] ?? 0) as num).toDouble(),
         mealOverride: (j['mealOverride'] as num?)?.toDouble(),
         maintenanceOverride: (j['maintenanceOverride'] as num?)?.toDouble(),
         note: (j['note'] ?? '') as String,
@@ -392,3 +401,74 @@ bool contractsOverlap(Contract a, Contract b) {
   final aEnd = a.endDate ?? DateTime(9999), bEnd = b.endDate ?? DateTime(9999);
   return !a.startDate.isAfter(bEnd) && !b.startDate.isAfter(aEnd);
 }
+
+
+/// Historique des congés payés d'un contrat : solde repris d'avant
+/// l'application, jours pris et paiements effectués.
+enum PaidLeaveKind { openingBalance, taken, payment }
+
+class PaidLeaveEntry {
+  final String id;
+  final String contractId;
+  final DateTime date;
+  final PaidLeaveKind kind;
+  final double days; // jours ouvrables (solde repris ou pris)
+  final double amount; // montant brut versé (paiement / solde repris)
+  final String note;
+  const PaidLeaveEntry({
+    required this.id,
+    required this.contractId,
+    required this.date,
+    required this.kind,
+    this.days = 0,
+    this.amount = 0,
+    this.note = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'contractId': contractId,
+        'date': dateKey(date),
+        'kind': kind.name,
+        'days': days,
+        'amount': amount,
+        'note': note,
+      };
+  factory PaidLeaveEntry.fromJson(Map<String, dynamic> j) => PaidLeaveEntry(
+        id: j['id'] as String,
+        contractId: j['contractId'] as String,
+        date: parseDateKey(j['date'] as String),
+        kind: PaidLeaveKind.values.byName(j['kind'] as String),
+        days: ((j['days'] ?? 0) as num).toDouble(),
+        amount: ((j['amount'] ?? 0) as num).toDouble(),
+        note: (j['note'] ?? '') as String,
+      );
+}
+
+/// Solde des congés payés d'un contrat à partir de son historique.
+class PaidLeaveLedger {
+  final double openingDays;
+  final double openingAmount;
+  final double takenDays;
+  final double paidAmount;
+  const PaidLeaveLedger(this.openingDays, this.openingAmount, this.takenDays, this.paidAmount);
+  factory PaidLeaveLedger.of(Iterable<PaidLeaveEntry> es) {
+    double od = 0, oa = 0, td = 0, pa = 0;
+    for (final e in es) {
+      switch (e.kind) {
+        case PaidLeaveKind.openingBalance:
+          od += e.days;
+          oa += e.amount;
+        case PaidLeaveKind.taken:
+          td += e.days;
+        case PaidLeaveKind.payment:
+          pa += e.amount;
+      }
+    }
+    return PaidLeaveLedger(od, round2(oa), td, round2(pa));
+  }
+}
+
+/// Conversion taux horaire net ↔ brut.
+double netToGross(double net, double ratio) => ratio <= 0 ? net : round2(net / ratio);
+double grossToNet(double gross, double ratio) => round2(gross * ratio);

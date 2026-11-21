@@ -1,6 +1,6 @@
 {
-  "build": 8,
-  "version": "1.0.7",
-  "notes": "Logo aux traits épais (V1).",
-  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.7-8/assmatia-1.0.7-8.apk"
+  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.8-9/assmatia-1.0.8-9.apk",
+  "notes": "Calendrier des absences et retards (sélection de plusieurs jours), heures en plus majorées, simulation fin de mois, saisie du taux en net, historique des congés payés.",
+  "build": 9,
+  "version": "1.0.8"
 }
