@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../data/nanny_store.dart';
 import '../../domain/engine.dart';
@@ -49,6 +50,12 @@ class _RecapTabState extends State<RecapTab> {
           ),
         const SizedBox(height: 8),
         Wrap(spacing: 8, children: [
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Kid.coral),
+            icon: const Icon(Icons.assignment_turned_in_rounded),
+            label: const Text('Préparer Pajemploi'),
+            onPressed: () => showPajemploi(context, c, sm),
+          ),
           OutlinedButton.icon(
             icon: const Icon(Icons.list_alt),
             label: const Text('Détail par jour'),
@@ -272,4 +279,69 @@ class _TaxTabState extends State<TaxTab> {
     if (v == null) return;
     await s.setIncomeOverride(year, parseNum(v));
   }
+}
+
+
+/// Aide à la déclaration mensuelle Pajemploi : chaque valeur se copie d'un geste.
+void showPajemploi(BuildContext context, Child c, MonthlySummary sm) {
+  final p = PajemploiDeclaration.of(sm);
+  String n(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
+  final rows = <(String, String, String)>[
+    ("Nombre d'heures normales", n(p.normalHours), 'h'),
+    ("Nombre d'heures majorées", n(p.majoredHours), 'h'),
+    ("Nombre de jours d'activité", '${p.activityDays}', 'j'),
+    ('Salaire net total', n(p.netSalary), '€'),
+    ("Indemnités d'entretien", n(p.maintenance), '€'),
+    ('Indemnités de repas', n(p.meals), '€'),
+  ];
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            ChildAvatar(name: c.firstName, color: c.color, size: 40),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Pajemploi · ${c.firstName} · ${monthLabel(sm.year, sm.month)}',
+                  style: Theme.of(ctx).textTheme.titleLarge),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          const Text('Reportez ces valeurs dans votre déclaration sur pajemploi.urssaf.fr. '
+              'Touchez une ligne pour copier la valeur.', style: TextStyle(fontSize: 12)),
+          if (sm.provisional)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('Mois non terminé : valeurs provisoires.', style: TextStyle(color: Kid.coral, fontWeight: FontWeight.w800)),
+            ),
+          if (sm.locked && sm.paidHours == 0)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('Mois validé avec une ancienne version : déverrouillez puis revalidez-le pour obtenir les heures.',
+                  style: TextStyle(color: Kid.coral, fontWeight: FontWeight.w800)),
+            ),
+          const SizedBox(height: 8),
+          for (final (label, value, unit) in rows)
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                title: Text(label),
+                subtitle: Text('$value $unit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                trailing: const Icon(Icons.copy_rounded),
+                onTap: () async {
+                  await Clipboard.setData(ClipboardData(text: value));
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('$label copié : $value')));
+                  }
+                },
+              ),
+            ),
+          const Disclaimer(compact: true),
+        ]),
+      ),
+    ),
+  );
 }

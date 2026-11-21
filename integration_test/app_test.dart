@@ -246,6 +246,14 @@ void main() {
     expect(find.textContaining('Tom'), findsNothing); // autre enfant invisible
     expect(find.textContaining('octobre 2026'), findsOneWidget);
 
+    // Le parent prévient d'une absence.
+    await t.tap(find.text('Prévenir'));
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextField, 'Message (facultatif)'), 'Rendez-vous médical');
+    await tapText(t, 'Envoyer');
+    await pumpUntil(t, find.textContaining('Demande envoyée'));
+    await pumpUntil(t, find.text('En attente'));
+
     // Lecture seule : les données privées sont refusées.
     for (final c in ['contracts', 'children', 'dailyLogs', 'taxScales']) {
       await expectLater(FirebaseFirestore.instance.collection(c).limit(1).get(), throwsA(isA<FirebaseException>()),
@@ -274,8 +282,18 @@ void main() {
       await t.pumpAndSettle();
     }
 
-    // L'assistante retire l'accès du parent.
+    // L'assistante voit la demande du parent et l'accepte.
     await signIn(nannyEmail);
+    await pumpUntil(t, find.text('Lina'));
+    await tapText(t, 'Absences');
+    await pumpUntil(t, find.text('Demande des parents · Lina'));
+    expect(find.textContaining('Rendez-vous médical'), findsOneWidget);
+    await tapText(t, 'Accepter (déduite)');
+    await pumpUntil(t, find.textContaining('Demande acceptée'));
+    expect(find.text('Demande des parents · Lina'), findsNothing);
+    await tapText(t, 'Enfants');
+
+    // L'assistante retire l'accès du parent.
     await tapText(t, 'Lina');
     await pumpUntil(t, find.text(parentEmail));
     await t.tap(find.byIcon(Icons.remove_circle_outline));

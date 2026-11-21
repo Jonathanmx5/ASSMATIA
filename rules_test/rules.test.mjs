@@ -88,3 +88,39 @@ test('rôle : fixé à la création, non modifiable', async () => {
 test('suppression de compte : profil supprimable par son titulaire', async () => {
   await assertSucceeds(deleteDoc(doc(parent(), 'users', 'p1')));
 });
+
+// ---------- Demandes des parents ----------
+const req = (over = {}) => ({ nannyId: NANNY, childId: 'k1', parentEmail: PARENT_EMAIL, status: 'pending', kind: 'absence', ...over });
+
+test('parent : peut proposer une absence pour son enfant', async () => {
+  await assertSucceeds(setDoc(doc(parent(), 'absenceRequests', 'r1'), req()));
+  await assertSucceeds(getDoc(doc(parent(), 'absenceRequests', 'r1')));
+});
+
+test('parent : demande refusée pour un autre enfant, un autre parent ou déjà validée', async () => {
+  await assertFails(setDoc(doc(parent(), 'absenceRequests', 'r2'), req({ childId: 'k2' })));
+  await assertFails(setDoc(doc(parent(), 'absenceRequests', 'r3'), req({ parentEmail: 'autre@example.com' })));
+  await assertFails(setDoc(doc(parent(), 'absenceRequests', 'r4'), req({ status: 'accepted' })));
+  await assertFails(setDoc(doc(parent(), 'absenceRequests', 'r5'), req({ nannyId: OTHER })));
+  await assertFails(setDoc(doc(parent(false), 'absenceRequests', 'r6'), req()));
+});
+
+test('parent : ne peut ni valider ni supprimer sa demande', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'absenceRequests', 'r7'), req()));
+  await assertFails(setDoc(doc(parent(), 'absenceRequests', 'r7'), req({ status: 'accepted' })));
+  await assertFails(deleteDoc(doc(parent(), 'absenceRequests', 'r7')));
+});
+
+test('assmat : lit et traite les demandes qui la concernent, pas celles des autres', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'absenceRequests', 'r8'), req()));
+  await assertSucceeds(getDoc(doc(nanny(), 'absenceRequests', 'r8')));
+  await assertSucceeds(setDoc(doc(nanny(), 'absenceRequests', 'r8'), req({ status: 'accepted' })));
+  await assertFails(getDoc(doc(other(), 'absenceRequests', 'r8')));
+});
+
+test('parent : liste ses propres demandes', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'absenceRequests', 'r9'), req()));
+  const q = query(collection(parent(), 'absenceRequests'), where('parentEmail', '==', PARENT_EMAIL));
+  const s = await assertSucceeds(getDocs(q));
+  if (s.size !== 1) throw new Error(`attendu 1, reçu ${s.size}`);
+});

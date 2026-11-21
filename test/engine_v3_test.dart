@@ -124,4 +124,39 @@ void main() {
       expect(s.extraPay, round2(1 * 4 * 1.25)); // 46 h dans la semaine → majorée
     });
   });
+
+  group('déclaration Pajemploi', () {
+    test('heures normales = mensualisées − absences + heures en plus non majorées', () {
+      // 45 h/sem × 52 / 12 = 195 h ; absence du lundi 2 (9 h) ; 1 h en plus le mardi 3 (semaine 37 h + 1 = 37 h < 45)
+      final s = computeMonth(contract(sched9), 2026, 3, {
+        '2026-03-02': DailyLog(childId: 'k', date: DateTime(2026, 3, 2), status: DayStatus.absentDeducted),
+        '2026-03-03': late(DateTime(2026, 3, 3), 1),
+      });
+      final p = PajemploiDeclaration.of(s);
+      expect(s.paidHours, 195);
+      expect(p.normalHours, 195 - 9 + 1);
+      expect(p.majoredHours, 0);
+      expect(p.activityDays, 21);
+      expect(p.netSalary, s.netSalary);
+    });
+    test('heures majorées séparées', () {
+      final s = computeMonth(contract(sched9), 2026, 3, {'2026-03-02': late(DateTime(2026, 3, 2), 2)});
+      final p = PajemploiDeclaration.of(s);
+      expect(p.majoredHours, 2);
+      expect(p.normalHours, 195);
+    });
+  });
+
+  test('Cour de cassation : semaines non programmées exclues des heures potentielles', () {
+    // Mars 2026 : 198 h potentielles ; semaine du 9 au 13 non programmée → 153 h.
+    final ctx = CalcContext(leaves: [
+      LeavePeriod(id: 'w', from: DateTime(2026, 3, 9), to: DateTime(2026, 3, 15), childIds: ['k']),
+    ]);
+    final s = computeMonth(contract(sched9), 2026, 3, {
+      '2026-03-02': DailyLog(childId: 'k', date: DateTime(2026, 3, 2), status: DayStatus.absentDeducted),
+    }, ctx: ctx);
+    expect(s.baseSalary, 780); // mensualisation inchangée
+    expect(s.potentialHours, 153);
+    expect(s.absenceDeduction, round2(780 * 9 / 153));
+  });
 }

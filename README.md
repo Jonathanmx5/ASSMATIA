@@ -14,8 +14,8 @@
   <img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white">
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
   <img alt="Firebase" src="https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-50%20unitaires%20%C2%B7%209%20r%C3%A8gles%20%C2%B7%202%20bout%20en%20bout-4CC9A6">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.9-9C7CF0">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-53%20unitaires%20%C2%B7%2014%20r%C3%A8gles%20%C2%B7%202%20bout%20en%20bout-4CC9A6">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-9C7CF0">
 </p>
 
 <p align="center">
@@ -60,17 +60,23 @@ le planning et le récapitulatif de leur enfant depuis leur propre téléphone, 
 - **Avenants datés** : une augmentation au 1er novembre ne touche pas aux mois précédents.
 - Contrôles automatiques : contrats qui se chevauchent, horaires incohérents.
 
-### 📅 Planning et suivi du jour
-- Planning de la semaine pour tous les enfants, avec les **jours fériés** et les **congés**.
-- Pointage en un geste : « Tous présents », horaires réels, absence déduite ou non, absence sur la semaine.
-- Indemnités de repas et d'entretien calculées chaque jour, modifiables à la main.
+### 📅 Planning et exceptions
+- Le **planning type s'applique tout seul** : rien à pointer au quotidien.
+- **Calendrier des exceptions** : sélection de plusieurs jours pour noter une absence (déduite ou non),
+  des congés ou des **heures en plus** quand les parents sont en retard.
+- **Année incomplète** : choix des semaines programmées, avec contrôle par rapport au contrat.
+- Jours fériés automatiques, planning de la semaine pour tous les enfants.
 
 ### 💶 Paie
 - **Mensualisation** calculée et proratisée en cas d'entrée, de sortie ou d'avenant en cours de mois.
 - **Déduction d'absence selon la Cour de cassation**, formule affichée.
 - Brut du mois, **net estimé** (taux réglable), total à verser indemnités comprises.
+- **Heures en plus** payées au taux horaire, **majorées au-delà de 45 h** par semaine.
+- **Simulation de fin de mois** : ce que vous toucherez si la suite du mois suit le planning.
+- **Déclaration Pajemploi pré-remplie** : heures normales, heures majorées, jours, net, indemnités, à copier.
+- Taux horaire saisi **en net ou en brut**, conversion automatique.
 - Détail jour par jour et **validation du mois** : un mois validé ne bouge plus.
-- **Congés payés** estimés : 10 % ou maintien de salaire, le plus favorable.
+- **Congés payés** estimés (10 % ou maintien) et **historique** : solde repris, jours pris, paiements.
 
 ### 🧾 Fiscal
 - **Abattement** sur l'année civile, tous enfants confondus : 3 × SMIC par journée de 8 h et plus,
@@ -81,6 +87,8 @@ le planning et le récapitulatif de leur enfant depuis leur propre téléphone, 
 ### 👨‍👩‍👧 Espace parents
 - Invitation par e-mail, message prêt à envoyer par SMS ou messagerie.
 - Le parent voit **uniquement** le planning et les récapitulatifs de **son** enfant.
+- Bouton **« Prévenir »** : le parent signale une absence ou un retard ; vous acceptez ou refusez
+  et le calendrier se met à jour.
 - E-mail vérifié obligatoire ; retirer un parent lui retire tout l'historique.
 
 ### ⚙️ Confort

@@ -476,3 +476,75 @@ double grossToNet(double gross, double ratio) => round2(gross * ratio);
 /// Ajoute [n] jours calendaires (sûr au changement d'heure, contrairement à
 /// `add(Duration(days: n))` qui ajoute 24 h et décale la date fin octobre).
 DateTime addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n);
+
+/// Demande d'un parent : absence ou retard, à accepter ou refuser par
+/// l'assistante maternelle.
+enum RequestKind { absence, late }
+
+enum RequestStatus { pending, accepted, refused }
+
+class AbsenceRequest {
+  final String id;
+  final String nannyId;
+  final String childId;
+  final String parentEmail;
+  final RequestKind kind;
+  final DateTime from;
+  final DateTime to;
+  final double extraHours; // retard : temps de garde en plus par jour
+  final String message;
+  final RequestStatus status;
+  final DateTime createdAt;
+  const AbsenceRequest({
+    required this.id,
+    required this.nannyId,
+    required this.childId,
+    required this.parentEmail,
+    required this.kind,
+    required this.from,
+    required this.to,
+    this.extraHours = 0,
+    this.message = '',
+    this.status = RequestStatus.pending,
+    required this.createdAt,
+  });
+
+  List<DateTime> get days {
+    final out = <DateTime>[];
+    for (var d = dayOnly(from); !d.isAfter(dayOnly(to)); d = addDays(d, 1)) {
+      out.add(d);
+    }
+    return out;
+  }
+
+  AbsenceRequest withStatus(RequestStatus s) => AbsenceRequest(
+      id: id, nannyId: nannyId, childId: childId, parentEmail: parentEmail, kind: kind, from: from, to: to,
+      extraHours: extraHours, message: message, status: s, createdAt: createdAt);
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nannyId': nannyId,
+        'childId': childId,
+        'parentEmail': parentEmail,
+        'kind': kind.name,
+        'from': dateKey(from),
+        'to': dateKey(to),
+        'extraHours': extraHours,
+        'message': message,
+        'status': status.name,
+        'createdAt': createdAt.toIso8601String(),
+      };
+  factory AbsenceRequest.fromJson(Map<String, dynamic> j) => AbsenceRequest(
+        id: j['id'] as String,
+        nannyId: j['nannyId'] as String,
+        childId: j['childId'] as String,
+        parentEmail: j['parentEmail'] as String,
+        kind: RequestKind.values.byName(j['kind'] as String),
+        from: parseDateKey(j['from'] as String),
+        to: parseDateKey(j['to'] as String),
+        extraHours: ((j['extraHours'] ?? 0) as num).toDouble(),
+        message: (j['message'] ?? '') as String,
+        status: RequestStatus.values.byName(j['status'] as String),
+        createdAt: DateTime.tryParse('${j['createdAt']}') ?? DateTime.now(),
+      );
+}

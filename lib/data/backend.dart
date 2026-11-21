@@ -23,6 +23,9 @@ const kPrivateCollections = [kChildren, kContracts, kLogs, kTaxScales, kSettings
 const kSharedPlannings = 'sharedPlannings';
 const kSummaries = 'monthlySummaries';
 
+/// Demandes des parents (créées par le parent, traitées par l'assistante).
+const kRequests = 'absenceRequests';
+
 typedef Data = Map<String, Map<String, Map<String, dynamic>>>;
 
 /// Écriture groupée : data == null => suppression.
@@ -69,7 +72,7 @@ class FirestoreNannyBackend implements NannyBackend {
   @override
   Future<Data> loadAll() async {
     final out = <String, Map<String, Map<String, dynamic>>>{};
-    await Future.wait(kPrivateCollections.map((c) async {
+    await Future.wait([...kPrivateCollections, kRequests].map((c) async {
       final snap = await _get(_mine(c));
       out[c] = {for (final d in snap.docs) d.id: d.data()};
     }));
@@ -179,5 +182,19 @@ class ParentReader {
   }
 
   Future<List<Map<String, dynamic>>> plannings() => _q(kSharedPlannings);
+
+  /// Demandes envoyées par ce parent.
+  Future<List<Map<String, dynamic>>> myRequests() async {
+    final q = db.collection(kRequests).where('parentEmail', isEqualTo: email);
+    try {
+      return (await q.get().timeout(const Duration(seconds: 10))).docs.map((d) => d.data()).toList();
+    } catch (_) {
+      return (await q.get(const GetOptions(source: Source.cache))).docs.map((d) => d.data()).toList();
+    }
+  }
+
+  /// Envoie une demande « en attente » (seule écriture permise au parent).
+  Future<void> sendRequest(Map<String, dynamic> data) =>
+      db.collection(kRequests).doc(data['id'] as String).set(data);
   Future<List<Map<String, dynamic>>> summaries() => _q(kSummaries);
 }

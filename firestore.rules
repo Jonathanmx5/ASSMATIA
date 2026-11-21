@@ -48,6 +48,27 @@ service cloud.firestore {
         && isOwner();
     }
 
+    // Demandes des parents (absence, retard) : le parent propose, l'assistante
+    // maternelle décide. Le parent ne peut créer qu'une demande « en attente »
+    // pour un enfant qui lui est partagé ; il ne peut ni la modifier ni la valider.
+    function myEmail() { return request.auth.token.email.lower(); }
+    function verifiedParent() {
+      return signedIn() && request.auth.token.email != null && request.auth.token.email_verified == true;
+    }
+    match /absenceRequests/{id} {
+      allow read: if isOwner() || (verifiedParent() && resource.data.parentEmail == myEmail());
+      allow create: if verifiedParent()
+        && request.resource.data.parentEmail == myEmail()
+        && request.resource.data.status == 'pending'
+        && exists(/databases/$(database)/documents/sharedPlannings/$(request.resource.data.childId))
+        && myEmail() in get(/databases/$(database)/documents/sharedPlannings/$(request.resource.data.childId)).data.parentEmails
+        && request.resource.data.nannyId == get(/databases/$(database)/documents/sharedPlannings/$(request.resource.data.childId)).data.nannyId;
+      allow update: if isOwner() && request.resource.data.nannyId == resource.data.nannyId
+        && request.resource.data.parentEmail == resource.data.parentEmail
+        && request.resource.data.childId == resource.data.childId;
+      allow delete: if isOwner();
+    }
+
     // Vues partagées en lecture seule.
     match /sharedPlannings/{childId} {
       allow read: if isOwner() || parentAllowed();

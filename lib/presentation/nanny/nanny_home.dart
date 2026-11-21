@@ -111,10 +111,10 @@ class _NannyHomeState extends State<NannyHome> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: tab,
           onDestinationSelected: (i) => setState(() => tab = i),
-          destinations: const [
+          destinations: [
             NavigationDestination(icon: Icon(Icons.child_care_rounded), selectedIcon: Icon(Icons.child_care_rounded, color: Kid.coral), label: 'Enfants'),
             NavigationDestination(icon: Icon(Icons.calendar_month_rounded), selectedIcon: Icon(Icons.calendar_month_rounded, color: Kid.sky), label: 'Planning'),
-            NavigationDestination(icon: Icon(Icons.event_note_rounded), selectedIcon: Icon(Icons.event_note_rounded, color: Kid.mint), label: 'Absences'),
+            NavigationDestination(icon: Badge(isLabelVisible: s.pendingRequests.isNotEmpty, label: Text('${s.pendingRequests.length}'), child: const Icon(Icons.event_note_rounded)), selectedIcon: const Icon(Icons.event_note_rounded, color: Kid.mint), label: 'Absences'),
             NavigationDestination(icon: Icon(Icons.savings_rounded), selectedIcon: Icon(Icons.savings_rounded, color: Kid.lavender), label: 'Récaps'),
             NavigationDestination(icon: Icon(Icons.account_balance_rounded), selectedIcon: Icon(Icons.account_balance_rounded, color: Kid.coral), label: 'Fiscal'),
           ],

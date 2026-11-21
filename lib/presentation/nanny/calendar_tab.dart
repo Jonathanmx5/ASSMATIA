@@ -174,6 +174,7 @@ class _CalendarTabState extends State<CalendarTab> {
     }
     return Stack(children: [
       ListView(padding: const EdgeInsets.only(bottom: 160), children: [
+        for (final r in s.pendingRequests) _requestCard(r),
         // Filtre enfants
         SizedBox(
           height: 52,
@@ -291,6 +292,48 @@ class _CalendarTabState extends State<CalendarTab> {
       ]),
       if (selectedDays.isNotEmpty) Positioned(left: 8, right: 8, bottom: 8, child: _actionBar()),
     ]);
+  }
+
+  Widget _requestCard(AbsenceRequest r) {
+    final c = s.children[r.childId]!;
+    final period = r.from == r.to ? 'le ${fmtDate(r.from)}' : 'du ${fmtDate(r.from)} au ${fmtDate(r.to)}';
+    final what = r.kind == RequestKind.late ? 'Retard de ${hrs(r.extraHours)} par jour' : 'Absence';
+    Future<void> accept(bool deducted) async {
+      final n = await s.acceptRequest(r, deducted: deducted);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Demande acceptée : $n journée(s) mise(s) à jour.')));
+      }
+    }
+    return Card(
+      color: const Color(0xFFFFF4E0),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            ChildAvatar(name: c.firstName, color: c.color, size: 36),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Demande des parents · ${c.firstName}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('$what $period', style: const TextStyle(fontSize: 13)),
+              ]),
+            ),
+          ]),
+          if (r.message.isNotEmpty)
+            Padding(padding: const EdgeInsets.only(top: 6), child: Text('« ${r.message} »', style: const TextStyle(fontStyle: FontStyle.italic))),
+          Text(r.parentEmail, style: const TextStyle(fontSize: 11)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            if (r.kind == RequestKind.absence) ...[
+              FilledButton.tonal(onPressed: () => accept(true), child: const Text('Accepter (déduite)')),
+              FilledButton.tonal(onPressed: () => accept(false), child: const Text('Accepter (non déduite)')),
+            ] else
+              FilledButton.tonal(onPressed: () => accept(true), child: const Text('Accepter')),
+            TextButton(onPressed: () => s.refuseRequest(r), child: const Text('Refuser')),
+          ]),
+        ]),
+      ),
+    );
   }
 
   Widget _cell(DateTime d, List<Child> list, DateTime today) {

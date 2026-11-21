@@ -6,6 +6,7 @@ import '../../domain/engine.dart';
 import '../../domain/models.dart';
 import '../common.dart';
 import 'contract_screens.dart';
+import 'programmed_weeks_screen.dart';
 import '../theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -280,6 +281,13 @@ class _ContractCard extends StatelessWidget {
               }),
               onTap: () => Navigator.push(context, MaterialPageRoute(
                   builder: (_) => AmendmentEditScreen(store: store, contract: ct, existing: a))),
+            ),
+          if (resolveTerms(ct, DateTime.now()).type == ContractType.partialYear)
+            OutlinedButton.icon(
+              icon: const Icon(Icons.date_range_rounded),
+              label: const Text('Semaines programmées'),
+              onPressed: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => ProgrammedWeeksScreen(store: store, contract: ct))),
             ),
           const Divider(),
           _PaidLeaveSection(store: store, contract: ct),

@@ -31,6 +31,7 @@ class NannyStore extends ChangeNotifier {
   final Map<String, LeavePeriod> leaves = {};
   final Map<String, MonthlySummary> locked = {};
   final Map<String, PaidLeaveEntry> paidLeaves = {};
+  final Map<String, AbsenceRequest> requests = {};
   double netRatio = kDefaultNetRatio;
 
   /// Date d'arrêté des calculs (aujourd'hui) ; surchargeable pour les tests.
@@ -60,6 +61,7 @@ class NannyStore extends ChangeNotifier {
     leaves..clear()..addAll(parse(kLeaves, LeavePeriod.fromJson));
     locked..clear()..addAll(parse(kLocked, MonthlySummary.fromJson));
     paidLeaves..clear()..addAll(parse(kPaidLeaves, PaidLeaveEntry.fromJson));
+    requests..clear()..addAll(parse(kRequests, AbsenceRequest.fromJson));
     taxScales.clear();
     kDefaultSmic.forEach((y, s) => taxScales[y] = TaxScale(y, s));
     for (final v in (all[kTaxScales] ?? {}).values) {
@@ -136,6 +138,41 @@ class NannyStore extends ChangeNotifier {
       acc = acc == null ? s : acc + s;
     }
     return acc;
+  }
+
+  List<AbsenceRequest> get pendingRequests =>
+      requests.values.where((r) => r.status == RequestStatus.pending && children[r.childId] != null).toList()
+        ..sort((a, b) => a.from.compareTo(b.from));
+
+  /// Accepte une demande : l'absence ou le retard est reporté au calendrier.
+  Future<int> acceptRequest(AbsenceRequest r, {bool deducted = true}) async {
+    final days = r.days.where((d) {
+      final ct = contractOn(r.childId, d);
+      return ct != null && resolveTerms(ct, d).schedule.hoursFor(d.weekday) > 0 && !isLocked(r.childId, d.year, d.month);
+    }).toList();
+    if (days.isNotEmpty) {
+      await removeLeaveDays(r.childId, days);
+      await saveLogs([
+        for (final d in days)
+          r.kind == RequestKind.late
+              ? DailyLog(childId: r.childId, date: d, extraHours: r.extraHours, note: r.message)
+              : DailyLog(
+                  childId: r.childId,
+                  date: d,
+                  status: deducted ? DayStatus.absentDeducted : DayStatus.absentNotDeducted,
+                  absenceHours: deducted ? resolveTerms(contractOn(r.childId, d)!, d).schedule.hoursFor(d.weekday) : 0,
+                  note: r.message),
+      ]);
+    }
+    await _setRequest(r.withStatus(RequestStatus.accepted));
+    return days.length;
+  }
+
+  Future<void> refuseRequest(AbsenceRequest r) => _setRequest(r.withStatus(RequestStatus.refused));
+
+  Future<void> _setRequest(AbsenceRequest r) async {
+    requests[r.id] = r;
+    _write([WriteOp(kRequests, r.id, r.toJson())]);
   }
 
   List<PaidLeaveEntry> paidLeavesOf(String contractId) =>
@@ -351,7 +388,7 @@ class NannyStore extends ChangeNotifier {
   /// Supprime toutes les données de l'assistante maternelle (suppression de compte).
   Future<void> deleteEverything() async {
     final ops = <WriteOp>[];
-    for (final c in [...kPrivateCollections, kSharedPlannings, kSummaries]) {
+    for (final c in [...kPrivateCollections, kSharedPlannings, kSummaries, kRequests]) {
       for (final id in await backend.idsWhere(c, 'nannyId', _nannyIdOrEmpty)) {
         ops.add(WriteOp(c, id, null));
       }

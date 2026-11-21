@@ -126,6 +126,8 @@ class MonthlySummary {
   final double absenceDeduction;
   final double extraHours; // heures en plus (retards)
   final double extraPay; // rémunération des heures en plus (majorées au-delà de 45 h/sem.)
+  final double paidHours; // heures mensualisées du mois (proratisées)
+  final double majoredHours; // part des heures en plus au-delà de 45 h/sem.
   final double grossSalary; // brut du mois = base - déductions + heures en plus
   final double netSalary; // net estimé = brut × taux de conversion
   final double plannedHours;
@@ -146,6 +148,8 @@ class MonthlySummary {
     required this.absenceDeduction,
     this.extraHours = 0,
     this.extraPay = 0,
+    this.paidHours = 0,
+    this.majoredHours = 0,
     required this.grossSalary,
     required this.netSalary,
     required this.plannedHours,
@@ -175,6 +179,8 @@ class MonthlySummary {
         absenceDeduction: round2(absenceDeduction + b.absenceDeduction),
         extraHours: round2(extraHours + b.extraHours),
         extraPay: round2(extraPay + b.extraPay),
+        paidHours: round2(paidHours + b.paidHours),
+        majoredHours: round2(majoredHours + b.majoredHours),
         grossSalary: round2(grossSalary + b.grossSalary),
         netSalary: round2(netSalary + b.netSalary),
         plannedHours: round2(plannedHours + b.plannedHours),
@@ -196,6 +202,8 @@ class MonthlySummary {
         'absenceDeduction': absenceDeduction,
         'extraHours': extraHours,
         'extraPay': extraPay,
+        'paidHours': paidHours,
+        'majoredHours': majoredHours,
         'grossSalary': grossSalary,
         'netSalary': netSalary,
         'plannedHours': plannedHours,
@@ -219,6 +227,8 @@ class MonthlySummary {
       absenceDeduction: d('absenceDeduction'),
       extraHours: d('extraHours'),
       extraPay: d('extraPay'),
+      paidHours: d('paidHours'),
+      majoredHours: d('majoredHours'),
       grossSalary: d('grossSalary'),
       netSalary: d('netSalary'),
       plannedHours: d('plannedHours'),
@@ -245,11 +255,21 @@ class MonthlySummary {
 MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLog> logs,
     {CalcContext? ctx, List<DayResult>? details}) {
   ctx ??= CalcContext();
-  double salary = 0, deduction = 0, planned = 0, worked = 0, absence = 0, potMax = 0;
+  double salary = 0, deduction = 0, planned = 0, worked = 0, absence = 0, potMax = 0, paidH = 0;
   double meals = 0, maint = 0;
   int present = 0;
   var provisional = false;
   final potentialCache = <WeeklySchedule, double>{};
+  // Heures potentielles « réelles » (Cour de cassation) : hors semaines non
+  // programmées et congés, qui ne sont pas des heures que l'enfant aurait faites.
+  final progCache = <WeeklySchedule, double>{};
+  double progPotential(WeeklySchedule sch) => progCache.putIfAbsent(sch, () {
+        var h = 0.0;
+        for (final d in daysOfMonth(year, month)) {
+          if (ctx!.kindOf(c.childId, d) != DayKind.leave) h += sch.hoursFor(d.weekday);
+        }
+        return h;
+      });
   // Heures en plus regroupées par semaine (lundi) pour la majoration > 45 h.
   final weekWorked = <String, double>{};
   final weekExtra = <String, double>{};
@@ -260,7 +280,7 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
     final t = resolveTerms(c, d);
     last = t;
     final pot = potentialCache.putIfAbsent(t.schedule, () => potentialHoursOfMonth(t.schedule, year, month));
-    potMax = math.max(potMax, pot);
+    potMax = math.max(potMax, progPotential(t.schedule));
     final kind = ctx.kindOf(c.childId, d);
     final log = logs[dateKey(d)];
     if (kind == DayKind.future && log == null && t.schedule.hoursFor(d.weekday) > 0) provisional = true;
@@ -268,8 +288,10 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
     details?.add(r);
     if (pot > 0) {
       salary += t.monthlySalary * r.plannedHours / pot;
-      deduction += t.monthlySalary * r.absenceDeductedHours / pot;
+      paidH += t.monthlyHours * r.plannedHours / pot;
     }
+    final prog = progPotential(t.schedule);
+    if (prog > 0) deduction += t.monthlySalary * r.absenceDeductedHours / prog;
     final wk = dateKey(addDays(d, -(d.weekday - 1)));
     weekWorked[wk] = (weekWorked[wk] ?? 0) + r.workedHours;
     if (r.extraHours > 0) {
@@ -283,11 +305,12 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
     maint += r.maintenance;
     if (r.workedHours > 0) present++;
   }
-  double extraH = 0, extraPay = 0;
+  double extraH = 0, extraPay = 0, majorH = 0;
   weekExtra.forEach((wk, ex) {
     final t = weekTerms[wk]!;
     final major = math.min(ex, math.max(0, weekWorked[wk]! - 45)).toDouble();
     extraH += ex;
+    majorH += major;
     extraPay += (ex - major) * t.hourlyRate + major * t.hourlyRate * (1 + t.allowances.overtimeMajorationPct / 100);
   });
   final base = round2(salary);
@@ -302,6 +325,8 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
     absenceDeduction: ded,
     extraHours: round2(extraH),
     extraPay: xp,
+    paidHours: round2(paidH),
+    majoredHours: round2(majorH),
     grossSalary: gross,
     netSalary: round2(gross * ctx.netRatio),
     plannedHours: round2(planned),
@@ -468,4 +493,26 @@ AnnualTaxReport computeAnnualTax({
     incomeByChild: incByChild.map((k, v) => MapEntry(k, round2(v))),
     partial: ctx.asOf != null && ctx.asOf!.isBefore(DateTime(year, 12, 31)),
   );
+}
+
+
+/// Champs à reporter sur la déclaration mensuelle Pajemploi (aide à la saisie).
+class PajemploiDeclaration {
+  final double normalHours; // heures mensualisées − absences déduites + heures en plus non majorées
+  final double majoredHours; // heures au-delà de 45 h/sem.
+  final int activityDays;
+  final double netSalary;
+  final double maintenance;
+  final double meals;
+  const PajemploiDeclaration(
+      this.normalHours, this.majoredHours, this.activityDays, this.netSalary, this.maintenance, this.meals);
+
+  factory PajemploiDeclaration.of(MonthlySummary s) => PajemploiDeclaration(
+        round2(math.max(0, s.paidHours - s.absenceHours + s.extraHours - s.majoredHours)),
+        s.majoredHours,
+        s.daysPresent,
+        s.netSalary,
+        s.maintenance,
+        s.meals,
+      );
 }
