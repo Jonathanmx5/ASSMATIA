@@ -48,8 +48,22 @@ class AssmatApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  int _refresh = 0;
+  NannyStore? _store;
+
+  NannyStore _storeFor(String uid) {
+    final cur = _store;
+    if (cur != null && (cur.backend as FirestoreNannyBackend).nannyId == uid) return cur;
+    return _store = NannyStore(FirestoreNannyBackend(uid, FirebaseFirestore.instance));
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -58,24 +72,35 @@ class AuthGate extends StatelessWidget {
         final user = snap.data;
         if (user == null) return const AuthScreen();
         return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          key: ValueKey(user.uid),
+          key: ValueKey('${user.uid}-$_refresh'),
           future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
           builder: (context, roleSnap) {
+            if (roleSnap.hasError) {
+              return Scaffold(body: Center(child: Text('Connexion impossible : ${roleSnap.error}')));
+            }
             if (!roleSnap.hasData) {
               return const Scaffold(body: Center(child: CircularProgressIndicator()));
             }
             final role = roleSnap.data!.data()?['role'];
             void signOut() => FirebaseAuth.instance.signOut();
+            Future<void> reset() => FirebaseAuth.instance.sendPasswordResetEmail(email: user.email ?? '');
             if (role == 'parent') {
+              final current = FirebaseAuth.instance.currentUser ?? user;
+              if (!current.emailVerified) {
+                return VerifyEmailScreen(user: current, onVerified: () => setState(() => _refresh++));
+              }
               return ParentHome(
                 reader: ParentReader(FirebaseFirestore.instance, (user.email ?? '').toLowerCase()),
                 onSignOut: signOut,
+                onDeleteAccount: deleteCurrentAccount,
               );
             }
             if (role == 'nanny') {
               return NannyHome(
-                store: NannyStore(FirestoreNannyBackend(user.uid, FirebaseFirestore.instance)),
+                store: _storeFor(user.uid),
                 onSignOut: signOut,
+                onDeleteAccount: deleteCurrentAccount,
+                onResetPassword: reset,
               );
             }
             return RolePicker(user: user);

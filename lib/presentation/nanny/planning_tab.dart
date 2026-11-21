@@ -52,7 +52,9 @@ class _PlanningTabState extends State<PlanningTab> {
       final t = resolveTerms(ct, d);
       final log = s.logOf(c.id, d);
       final slots = log?.actualSlots ?? t.schedule.slotsFor(d.weekday);
-      final absent = log != null && log.status != DayStatus.present;
+      final kind = s.kindOf(c.id, d);
+      final off = log == null && (kind == DayKind.leave || kind == DayKind.publicHoliday);
+      final absent = off || (log != null && log.status != DayStatus.present);
       if (slots.isEmpty) continue;
       total++;
       rows.add(Padding(
@@ -64,7 +66,7 @@ class _PlanningTabState extends State<PlanningTab> {
           Expanded(child: _Timeline(slots: slots, color: c.color, faded: absent)),
           SizedBox(
             width: 92,
-            child: Text(absent ? 'Absent' : slots.join('\n'),
+            child: Text(off ? (kind == DayKind.leave ? 'Congés' : 'Férié') : absent ? 'Absent' : slots.join('\n'),
                 textAlign: TextAlign.right, style: const TextStyle(fontSize: 11)),
           ),
         ]),

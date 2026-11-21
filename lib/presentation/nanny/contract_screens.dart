@@ -6,6 +6,14 @@ import '../../domain/models.dart';
 import '../common.dart';
 import 'terms_editor.dart';
 
+/// Message d'erreur si le planning est incohérent, sinon null.
+String? scheduleError(WeeklySchedule s) {
+  for (var d = 1; d <= 7; d++) {
+    if (slotsOverlap(s.slotsFor(d))) return 'Tranches horaires qui se chevauchent le ${weekdayNames[d - 1].toLowerCase()}.';
+  }
+  return null;
+}
+
 String newId() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 
 Future<DateTime?> pickDate(BuildContext context, DateTime initial) => showDatePicker(
@@ -82,9 +90,17 @@ class _ContractEditScreenState extends State<ContractEditScreen> {
                   const SnackBar(content: Text('La date de fin précède la date de début.')));
               return;
             }
+            final err = scheduleError(terms.schedule);
+            if (err != null) return showError(context, err);
             final c = widget.existing == null
                 ? Contract(id: newId(), childId: widget.childId, startDate: start, endDate: end, base: terms)
                 : widget.existing!.copyWith(startDate: start, endDate: end, clearEnd: end == null, base: terms);
+            final o = widget.store.overlapping(c);
+            if (o != null) {
+              return showError(context,
+                  'Ce contrat chevauche celui du ${fmtDate(o.startDate)}${o.endDate == null ? '' : ' au ${fmtDate(o.endDate!)}'}. '
+                  'Fixez une date de fin au précédent ou utilisez un avenant.');
+            }
             await widget.store.saveContract(c);
             if (context.mounted) Navigator.pop(context);
           },
@@ -150,6 +166,11 @@ class _AmendmentEditScreenState extends State<AmendmentEditScreen> {
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () async {
+            final err = scheduleError(terms.schedule);
+            if (err != null) return showError(context, err);
+            if (!widget.contract.isActiveOn(from)) {
+              return showError(context, "La date d'effet doit être comprise dans la durée du contrat.");
+            }
             final a = Amendment(
               id: widget.existing?.id ?? newId(),
               effectiveFrom: from,

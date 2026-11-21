@@ -329,3 +329,66 @@ class TaxScale {
   factory TaxScale.fromJson(Map<String, dynamic> j) =>
       TaxScale((j['year'] as num).toInt(), (j['smicHourly'] as num).toDouble());
 }
+
+/// Période sans accueil (congés de l'assistante maternelle, semaines non
+/// programmées en année incomplète, fermeture…). childIds vide = tous.
+class LeavePeriod {
+  final String id;
+  final DateTime from;
+  final DateTime to;
+  final String label;
+  final List<String> childIds;
+  const LeavePeriod({required this.id, required this.from, required this.to, this.label = '', this.childIds = const []});
+
+  bool covers(String childId, DateTime d) {
+    final x = dayOnly(d);
+    return !x.isBefore(dayOnly(from)) && !x.isAfter(dayOnly(to)) &&
+        (childIds.isEmpty || childIds.contains(childId));
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id, 'from': dateKey(from), 'to': dateKey(to), 'label': label, 'childIds': childIds,
+      };
+  factory LeavePeriod.fromJson(Map<String, dynamic> j) => LeavePeriod(
+        id: j['id'] as String,
+        from: parseDateKey(j['from'] as String),
+        to: parseDateKey(j['to'] as String),
+        label: (j['label'] ?? '') as String,
+        childIds: List<String>.from(j['childIds'] ?? const []),
+      );
+}
+
+/// Jours fériés français (métropole) d'une année, en dateKey.
+Set<String> frenchPublicHolidays(int y) {
+  // Dimanche de Pâques (algorithme de Meeus/Jones/Butcher).
+  final a = y % 19, b = y ~/ 100, c = y % 100, d = b ~/ 4, e = b % 4;
+  final f = (b + 8) ~/ 25, g = (b - f + 1) ~/ 3;
+  final h = (19 * a + b - d - g + 15) % 30;
+  final i = c ~/ 4, k = c % 4;
+  final l = (32 + 2 * e + 2 * i - h - k) % 7;
+  final m = (a + 11 * h + 22 * l) ~/ 451;
+  final month = (h + l - 7 * m + 114) ~/ 31;
+  final day = ((h + l - 7 * m + 114) % 31) + 1;
+  final easter = DateTime(y, month, day);
+  DateTime plus(int n) => DateTime(y, easter.month, easter.day + n);
+  return {
+    DateTime(y, 1, 1), plus(1), DateTime(y, 5, 1), DateTime(y, 5, 8), plus(39),
+    plus(50), DateTime(y, 7, 14), DateTime(y, 8, 15), DateTime(y, 11, 1),
+    DateTime(y, 11, 11), DateTime(y, 12, 25),
+  }.map(dateKey).toSet();
+}
+
+/// Overlap checks.
+bool slotsOverlap(List<TimeSlot> s) {
+  final l = [...s]..sort((a, b) => a.startMin.compareTo(b.startMin));
+  for (var i = 1; i < l.length; i++) {
+    if (l[i].startMin < l[i - 1].endMin) return true;
+  }
+  return l.any((x) => x.endMin <= x.startMin);
+}
+
+bool contractsOverlap(Contract a, Contract b) {
+  if (a.childId != b.childId || a.id == b.id) return false;
+  final aEnd = a.endDate ?? DateTime(9999), bEnd = b.endDate ?? DateTime(9999);
+  return !a.startDate.isAfter(bEnd) && !b.startDate.isAfter(aEnd);
+}

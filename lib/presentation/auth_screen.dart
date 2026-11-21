@@ -26,7 +26,8 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       final a = FirebaseAuth.instance;
       if (signup) {
-        await a.createUserWithEmailAndPassword(email: email.text.trim(), password: pwd.text);
+        final cred = await a.createUserWithEmailAndPassword(email: email.text.trim(), password: pwd.text);
+        await cred.user?.sendEmailVerification();
       } else {
         await a.signInWithEmailAndPassword(email: email.text.trim(), password: pwd.text);
       }
@@ -55,11 +56,82 @@ class _AuthScreenState extends State<AuthScreen> {
             onPressed: () => setState(() => signup = !signup),
             child: Text(signup ? 'J\'ai déjà un compte' : 'Créer un compte'),
           ),
+          if (!signup)
+            TextButton(
+              onPressed: () async {
+                final e = email.text.trim();
+                if (!e.contains('@')) {
+                  setState(() => error = 'Saisissez votre e-mail ci-dessus.');
+                  return;
+                }
+                try {
+                  await FirebaseAuth.instance.sendPasswordResetEmail(email: e);
+                  setState(() => error = 'Si un compte existe, un e-mail de réinitialisation a été envoyé.');
+                } on FirebaseAuthException catch (x) {
+                  setState(() => error = x.message ?? x.code);
+                }
+              },
+              child: const Text('Mot de passe oublié'),
+            ),
           const Disclaimer(),
         ]),
       ),
     );
   }
+}
+
+/// Écran bloquant tant que l'e-mail n'est pas vérifié (requis pour les
+/// parents : les règles d'accès exigent un e-mail vérifié).
+class VerifyEmailScreen extends StatefulWidget {
+  final User user;
+  final VoidCallback onVerified;
+  const VerifyEmailScreen({super.key, required this.user, required this.onVerified});
+  @override
+  State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
+}
+
+class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
+  String? msg;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Vérifiez votre e-mail'), actions: [
+          IconButton(icon: const Icon(Icons.logout), onPressed: () => FirebaseAuth.instance.signOut()),
+        ]),
+        body: ListView(padding: const EdgeInsets.all(24), children: [
+          Text('Un lien de confirmation a été envoyé à ${widget.user.email}. '
+              'Ouvrez-le, puis revenez ici. Cette vérification protège les données de votre enfant.'),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () async {
+              await widget.user.reload();
+              final u = FirebaseAuth.instance.currentUser;
+              if (u?.emailVerified ?? false) {
+                await u!.getIdToken(true); // jeton à jour pour les règles
+                widget.onVerified();
+              } else {
+                setState(() => msg = "L'e-mail n'est pas encore vérifié.");
+              }
+            },
+            child: const Text("J'ai cliqué sur le lien"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await widget.user.sendEmailVerification();
+              setState(() => msg = 'E-mail renvoyé.');
+            },
+            child: const Text("Renvoyer l'e-mail"),
+          ),
+          if (msg != null) Text(msg!),
+        ]),
+      );
+}
+
+/// Supprime le profil et le compte Firebase de l'utilisateur courant.
+Future<void> deleteCurrentAccount() async {
+  final u = FirebaseAuth.instance.currentUser;
+  if (u == null) return;
+  await FirebaseFirestore.instance.collection('users').doc(u.uid).delete();
+  await u.delete();
 }
 
 /// Choix du rôle à la première connexion (définitif).

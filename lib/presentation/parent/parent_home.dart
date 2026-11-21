@@ -9,7 +9,8 @@ import '../common.dart';
 class ParentHome extends StatefulWidget {
   final ParentReader reader;
   final VoidCallback onSignOut;
-  const ParentHome({super.key, required this.reader, required this.onSignOut});
+  final Future<void> Function()? onDeleteAccount;
+  const ParentHome({super.key, required this.reader, required this.onSignOut, this.onDeleteAccount});
   @override
   State<ParentHome> createState() => _ParentHomeState();
 }
@@ -27,7 +28,32 @@ class _ParentHomeState extends State<ParentHome> {
         title: const Text('Espace parent'),
         actions: [
           IconButton(icon: const Icon(Icons.sync), onPressed: () => setState(() => data = _load())),
-          IconButton(icon: const Icon(Icons.logout), onPressed: widget.onSignOut),
+          PopupMenuButton<String>(
+            onSelected: (v) async {
+              if (v == 'out') return widget.onSignOut();
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Supprimer mon compte ?'),
+                  content: const Text('Votre compte parent sera supprimé. Action irréversible.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Supprimer')),
+                  ],
+                ),
+              );
+              if (ok != true) return;
+              try {
+                await widget.onDeleteAccount?.call();
+              } catch (e) {
+                if (context.mounted) showError(context, 'Reconnectez-vous puis réessayez ($e).');
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'out', child: Text('Déconnexion')),
+              if (widget.onDeleteAccount != null) const PopupMenuItem(value: 'del', child: Text('Supprimer mon compte')),
+            ],
+          ),
         ],
       ),
       body: FutureBuilder(

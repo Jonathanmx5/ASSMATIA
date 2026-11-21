@@ -2,7 +2,8 @@ rules_version = '2';
 // Règles de sécurité ASSMATIA.
 // - Seule l'assistante maternelle (nannyId == uid) écrit et lit ses données.
 // - Les parents lisent uniquement sharedPlannings / monthlySummaries dont
-//   parentEmails contient leur e-mail vérifié par Firebase Auth.
+//   parentEmails contient leur e-mail, à condition qu'il soit vérifié
+//   (email_verified) : impossible de se faire passer pour un parent invité.
 // - Aucune écriture parent (hors leur propre profil users/{uid}).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,6 +24,7 @@ service cloud.firestore {
     function parentAllowed() {
       return signedIn()
         && request.auth.token.email != null
+        && request.auth.token.email_verified == true
         && request.auth.token.email.lower() in resource.data.parentEmails;
     }
 
@@ -31,16 +33,18 @@ service cloud.firestore {
       // Le rôle est fixé à la création et ne peut plus changer.
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.role in ['nanny', 'parent'];
-      allow update, delete: if false;
+      allow update: if false;
+      // Suppression de compte (RGPD).
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // Données privées de l'assistante maternelle (fiscal inclus).
     match /{col}/{id} {
-      allow read: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings']
+      allow read: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries']
         && isOwner();
-      allow create, update: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings']
+      allow create, update: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries']
         && isNanny() && writesAsOwner();
-      allow delete: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings']
+      allow delete: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings', 'leavePeriods', 'lockedSummaries']
         && isOwner();
     }
 

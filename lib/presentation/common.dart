@@ -78,11 +78,13 @@ class SummaryCard extends StatelessWidget {
   final String title;
   final int color;
   final Map<String, dynamic> s; // MonthlySummary.toJson()
-  const SummaryCard({super.key, required this.title, required this.color, required this.s});
+  final List<Widget> footer;
+  const SummaryCard({super.key, required this.title, required this.color, required this.s, this.footer = const []});
   double _d(String k) => ((s[k] ?? 0) as num).toDouble();
   @override
   Widget build(BuildContext context) {
     final net = _d('netSalary'), meals = _d('meals'), maint = _d('maintenance');
+    final pot = _d('potentialHours'), abs = _d('absenceHours');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -90,27 +92,37 @@ class SummaryCard extends StatelessWidget {
           Row(children: [
             ChildDot(color),
             const SizedBox(width: 8),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+            if (s['locked'] == true) const Chip(avatar: Icon(Icons.lock, size: 16), label: Text('Validé')),
+            if (s['provisional'] == true && s['locked'] != true) const Chip(label: Text('Prévisionnel')),
           ]),
           const Divider(),
           Line('Heures prévues', hrs(_d('plannedHours'))),
           Line('Heures effectuées', hrs(_d('workedHours'))),
-          Line('Jours d\'accueil', '${s['daysPresent'] ?? 0}'),
-          Line('Taux horaire', eur(_d('hourlyRate'))),
+          Line("Jours d'accueil", '${s['daysPresent'] ?? 0}'),
+          Line('Taux horaire brut', eur(_d('hourlyRate'))),
           const Divider(),
-          Line('Salaire mensualisé', eur(_d('baseSalary'))),
-          Line('Déduction absences (${hrs(_d('absenceHours'))})',
-              '- ${eur(_d('absenceDeduction'))}'),
-          Line('Salaire net du mois', eur(net), bold: true),
+          Line('Salaire mensualisé brut', eur(_d('baseSalary'))),
+          Line('Déduction absences (${hrs(abs)})', '- ${eur(_d('absenceDeduction'))}'),
+          if (abs > 0 && pot > 0)
+            Text('Cour de cassation : mensualisation × ${hoursFmt.format(abs)} h / ${hoursFmt.format(pot)} h potentielles',
+                style: const TextStyle(fontSize: 11)),
+          Line('Salaire brut du mois', eur(_d('grossSalary'))),
+          Line('Salaire net estimé', eur(net), bold: true),
           Line('Indemnités de repas', eur(meals)),
-          Line('Indemnités d\'entretien', eur(maint)),
+          Line("Indemnités d'entretien", eur(maint)),
           const Divider(),
-          Line('Total à verser', eur(round2(net + meals + maint)), bold: true),
+          Line('Total à verser (net + indemnités)', eur(round2(net + meals + maint)), bold: true),
+          ...footer,
         ]),
       ),
     );
   }
 }
+
+/// Affiche un message d'erreur d'enregistrement.
+void showError(BuildContext context, String msg) =>
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700));
 
 Future<int?> pickTime(BuildContext context, int minutes) async {
   final t = await showTimePicker(

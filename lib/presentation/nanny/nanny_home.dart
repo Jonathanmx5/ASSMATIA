@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../data/backend.dart';
 import '../../data/nanny_store.dart';
+import '../common.dart';
 import 'children_screens.dart';
 import 'daily_tab.dart';
 import 'planning_tab.dart';
 import 'recap_tax_tabs.dart';
+import 'settings_screen.dart';
 
 class NannyHome extends StatefulWidget {
   final NannyStore store;
   final VoidCallback? onSignOut;
-  const NannyHome({super.key, required this.store, this.onSignOut});
+  final Future<void> Function()? onDeleteAccount;
+  final Future<void> Function()? onResetPassword;
+  const NannyHome({super.key, required this.store, this.onSignOut, this.onDeleteAccount, this.onResetPassword});
   @override
   State<NannyHome> createState() => _NannyHomeState();
 }
@@ -21,7 +26,48 @@ class _NannyHomeState extends State<NannyHome> {
   @override
   void initState() {
     super.initState();
-    widget.store.load(); // synchronisation à l'ouverture
+    widget.store.addListener(_onStore);
+    _start();
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStore);
+    super.dispose();
+  }
+
+  Future<void> _start() async {
+    await widget.store.load(); // synchronisation à l'ouverture
+    if (!mounted || !widget.store.backend.supportsSharing) return;
+    // Migration : données saisies auparavant en mode local.
+    final local = await LocalFileBackend.readExisting();
+    if (local == null || !mounted) return;
+    final n = local[kChildren]?.length ?? 0;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Données en mode local'),
+        content: Text('$n fiche(s) enfant ont été saisies sur ce téléphone avant la connexion. '
+            'Les transférer dans votre compte ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Plus tard')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Transférer')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.store.importData(local);
+    final f = await LocalFileBackend.file();
+    await f.rename('${f.path}.migre');
+  }
+
+  void _onStore() {
+    final e = widget.store.lastError;
+    if (e == null || !mounted) return;
+    widget.store.clearLastError();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showError(context, e);
+    });
   }
 
   @override
@@ -34,11 +80,17 @@ class _NannyHomeState extends State<NannyHome> {
           title: Text(titles[tab]),
           actions: [
             if (!s.backend.supportsSharing)
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: Chip(label: Text('Mode local')),
-              ),
+              const Padding(padding: EdgeInsets.only(right: 4), child: Chip(label: Text('Mode local'))),
             IconButton(icon: const Icon(Icons.sync), tooltip: 'Synchroniser', onPressed: s.load),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Réglages',
+              onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => SettingsScreen(
+                          store: s, onDeleteAccount: widget.onDeleteAccount, onResetPassword: widget.onResetPassword))),
+            ),
             if (widget.onSignOut != null)
               IconButton(icon: const Icon(Icons.logout), tooltip: 'Déconnexion', onPressed: widget.onSignOut),
           ],

@@ -31,3 +31,14 @@ Flutter/Dart. Calculs fournis à titre d'aide/simulation : seuls les montants of
 `flutter test` · `flutter analyze` · `flutter build apk`
 
 Hors V1 : paiement, PDF, notifications, multi-rythmes, majorations.
+
+## Évolutions (lot 2)
+- Sécurité : accès parent conditionné à un e-mail **vérifié** ; révocation d'un parent appliquée à tout l'historique ;
+  tests des règles : `cd rules_test && npm test` (émulateur Firestore, 9 cas).
+- Hors ligne : écritures non bloquantes (cache Firestore), erreurs affichées ; publications groupées en lots.
+- Calculs : brut / net estimé (taux réglable), jours fériés automatiques, périodes de congés / semaines non
+  programmées, jours futurs en prévisionnel, abattement limité aux jours effectifs, estimation des congés payés
+  (10 % vs maintien, récap de mai/juin), contrôle des chevauchements (contrats, tranches).
+- Écrans : « Tous présents », absence sur la semaine, détail jour par jour, formule Cour de cassation,
+  validation/verrouillage d'un mois, réglages (congés, taux net, export/import JSON), migration mode local → cloud,
+  mot de passe oublié, suppression de compte, partage du message d'invitation.

@@ -1,5 +1,7 @@
 // État de l'assistante maternelle : cache mémoire + écriture vers le backend,
 // et publication des vues partagées (planning, récapitulatifs) pour les parents.
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../domain/engine.dart';
@@ -11,52 +13,36 @@ const kDefaultSmic = <int, double>{2024: 11.65, 2025: 11.88, 2026: 12.02};
 
 class NannyStore extends ChangeNotifier {
   final NannyBackend backend;
-  NannyStore(this.backend);
+  NannyStore(this.backend) {
+    backend.onError = (e) {
+      lastError = 'Échec de l\'enregistrement : $e';
+      notifyListeners();
+    };
+  }
 
   bool loading = true;
-  String? error;
+  String? error; // erreur de chargement
+  String? lastError; // erreur d'écriture à afficher (puis effacée)
   final Map<String, Child> children = {};
   final Map<String, Contract> contracts = {};
   final Map<String, DailyLog> logs = {};
   final Map<int, TaxScale> taxScales = {};
   final Map<int, double> incomeOverrides = {};
+  final Map<String, LeavePeriod> leaves = {};
+  final Map<String, MonthlySummary> locked = {};
+  double netRatio = kDefaultNetRatio;
+
+  /// Date d'arrêté des calculs (aujourd'hui) ; surchargeable pour les tests.
+  DateTime Function() now = DateTime.now;
+
+  CalcContext get ctx => CalcContext(leaves: leaves.values.toList(), asOf: now(), netRatio: netRatio);
 
   Future<void> load() async {
     loading = true;
     error = null;
     notifyListeners();
     try {
-      final all = await backend.loadAll();
-      children
-        ..clear()
-        ..addAll({
-          for (final e in (all[kChildren] ?? {}).entries)
-            e.key: Child.fromJson(e.value)
-        });
-      contracts
-        ..clear()
-        ..addAll({
-          for (final e in (all[kContracts] ?? {}).entries)
-            e.key: Contract.fromJson(e.value)
-        });
-      logs
-        ..clear()
-        ..addAll({
-          for (final e in (all[kLogs] ?? {}).entries)
-            e.key: DailyLog.fromJson(e.value)
-        });
-      taxScales.clear();
-      kDefaultSmic.forEach((y, s) => taxScales[y] = TaxScale(y, s));
-      for (final v in (all[kTaxScales] ?? {}).values) {
-        final t = TaxScale.fromJson(v);
-        taxScales[t.year] = t;
-      }
-      incomeOverrides.clear();
-      final st = all[kSettings]?['incomeOverrides'];
-      if (st != null) {
-        (st['values'] as Map? ?? {}).forEach((k, v) =>
-            incomeOverrides[int.parse('$k')] = (v as num).toDouble());
-      }
+      _apply(await backend.loadAll());
     } catch (e) {
       error = '$e';
     }
@@ -64,16 +50,36 @@ class NannyStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _apply(Data all) {
+    Map<String, T> parse<T>(String c, T Function(Map<String, dynamic>) f) =>
+        {for (final e in (all[c] ?? {}).entries) e.key: f(e.value)};
+    children..clear()..addAll(parse(kChildren, Child.fromJson));
+    contracts..clear()..addAll(parse(kContracts, Contract.fromJson));
+    logs..clear()..addAll(parse(kLogs, DailyLog.fromJson));
+    leaves..clear()..addAll(parse(kLeaves, LeavePeriod.fromJson));
+    locked..clear()..addAll(parse(kLocked, MonthlySummary.fromJson));
+    taxScales.clear();
+    kDefaultSmic.forEach((y, s) => taxScales[y] = TaxScale(y, s));
+    for (final v in (all[kTaxScales] ?? {}).values) {
+      final t = TaxScale.fromJson(v);
+      taxScales[t.year] = t;
+    }
+    incomeOverrides.clear();
+    final st = all[kSettings] ?? {};
+    ((st['incomeOverrides']?['values'] ?? {}) as Map)
+        .forEach((k, v) => incomeOverrides[int.parse('$k')] = (v as num).toDouble());
+    netRatio = ((st['general']?['netRatio'] ?? kDefaultNetRatio) as num).toDouble();
+  }
+
+  void clearLastError() => lastError = null;
+
   // ---------- lecture ----------
   List<Child> get activeChildren =>
-      children.values.where((c) => !c.archived).toList()
-        ..sort((a, b) => a.firstName.compareTo(b.firstName));
-  List<Child> get archivedChildren =>
-      children.values.where((c) => c.archived).toList();
+      children.values.where((c) => !c.archived).toList()..sort((a, b) => a.firstName.compareTo(b.firstName));
+  List<Child> get archivedChildren => children.values.where((c) => c.archived).toList();
 
   List<Contract> contractsOf(String childId) =>
-      contracts.values.where((c) => c.childId == childId).toList()
-        ..sort((a, b) => a.startDate.compareTo(b.startDate));
+      contracts.values.where((c) => c.childId == childId).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
 
   Contract? contractOn(String childId, DateTime d) {
     for (final c in contractsOf(childId)) {
@@ -82,47 +88,42 @@ class NannyStore extends ChangeNotifier {
     return null;
   }
 
-  DailyLog? logOf(String childId, DateTime d) =>
-      logs['${childId}_${dateKey(d)}'];
+  /// Contrat existant chevauchant [c], le cas échéant.
+  Contract? overlapping(Contract c) {
+    for (final o in contractsOf(c.childId)) {
+      if (contractsOverlap(c, o)) return o;
+    }
+    return null;
+  }
 
-  TaxScale scaleFor(int year) =>
-      taxScales[year] ?? TaxScale(year, kDefaultSmic[year] ?? kDefaultSmic.values.last);
+  DailyLog? logOf(String childId, DateTime d) => logs['${childId}_${dateKey(d)}'];
 
-  MonthlySummary? summary(String childId, int year, int month) {
-    final first = DateTime(year, month, 1);
-    final last = DateTime(year, month + 1, 0);
+  DayKind kindOf(String childId, DateTime d) => ctx.kindOf(childId, d);
+
+  TaxScale scaleFor(int year) => taxScales[year] ?? TaxScale(year, kDefaultSmic[year] ?? kDefaultSmic.values.last);
+
+  Map<String, DailyLog> _monthLogs(String childId, int year, int month) => {
+        for (final d in daysOfMonth(year, month))
+          if (logOf(childId, d) != null) dateKey(d): logOf(childId, d)!
+      };
+
+  /// Récapitulatif calculé (ou figé s'il a été validé).
+  MonthlySummary? summary(String childId, int year, int month, {List<DayResult>? details, bool ignoreLock = false}) {
+    final id = '${childId}_$year-${month.toString().padLeft(2, '0')}';
+    if (!ignoreLock && details == null && locked[id] != null) return locked[id];
+    final first = DateTime(year, month, 1), last = DateTime(year, month + 1, 0);
+    final c0 = ctx;
     MonthlySummary? acc;
     for (final c in contractsOf(childId)) {
-      if (c.startDate.isAfter(last) ||
-          (c.endDate != null && c.endDate!.isBefore(first))) {
-        continue;
-      }
-      final m = <String, DailyLog>{};
-      for (final d in daysOfMonth(year, month)) {
-        final l = logOf(childId, d);
-        if (l != null) m[dateKey(d)] = l;
-      }
-      final s = computeMonth(c, year, month, m);
-      acc = acc == null ? s : _add(acc, s);
+      if (c.startDate.isAfter(last) || (c.endDate != null && c.endDate!.isBefore(first))) continue;
+      final s = computeMonth(c, year, month, _monthLogs(childId, year, month), ctx: c0, details: details);
+      acc = acc == null ? s : acc + s;
     }
     return acc;
   }
 
-  MonthlySummary _add(MonthlySummary a, MonthlySummary b) => MonthlySummary(
-        childId: a.childId,
-        year: a.year,
-        month: a.month,
-        baseSalary: round2(a.baseSalary + b.baseSalary),
-        absenceDeduction: round2(a.absenceDeduction + b.absenceDeduction),
-        netSalary: round2(a.netSalary + b.netSalary),
-        plannedHours: round2(a.plannedHours + b.plannedHours),
-        workedHours: round2(a.workedHours + b.workedHours),
-        absenceHours: round2(a.absenceHours + b.absenceHours),
-        daysPresent: a.daysPresent + b.daysPresent,
-        meals: round2(a.meals + b.meals),
-        maintenance: round2(a.maintenance + b.maintenance),
-        hourlyRate: b.hourlyRate,
-      );
+  bool isLocked(String childId, int year, int month) =>
+      locked.containsKey('${childId}_$year-${month.toString().padLeft(2, '0')}');
 
   AnnualTaxReport annualTax(int year) => computeAnnualTax(
         year: year,
@@ -130,48 +131,76 @@ class NannyStore extends ChangeNotifier {
         contracts: contracts.values.toList(),
         logsById: logs,
         incomeOverride: incomeOverrides[year],
+        ctx: ctx,
       );
 
-  // ---------- écriture ----------
+  PaidLeaveEstimate? paidLeave(Contract c, int refEndYear) => computePaidLeave(c, refEndYear, logs, ctx: ctx);
+
+  // ---------- écriture (non bloquante) ----------
+  void _write(List<WriteOp> ops) {
+    notifyListeners();
+    backend.write(ops);
+  }
+
   Future<void> saveChild(Child c) async {
     children[c.id] = c;
-    notifyListeners();
-    await backend.put(kChildren, c.id, c.toJson());
+    _write([WriteOp(kChildren, c.id, c.toJson())]);
     await publishChild(c.id);
   }
 
   Future<void> saveContract(Contract c) async {
     contracts[c.id] = c;
-    notifyListeners();
-    await backend.put(kContracts, c.id, c.toJson());
+    _write([WriteOp(kContracts, c.id, c.toJson())]);
     await publishChild(c.childId);
   }
 
   Future<void> deleteContract(Contract c) async {
     contracts.remove(c.id);
-    notifyListeners();
-    await backend.delete(kContracts, c.id);
+    _write([WriteOp(kContracts, c.id, null)]);
     await publishChild(c.childId);
   }
 
-  Future<void> saveLog(DailyLog l) async {
-    logs[l.id] = l;
-    notifyListeners();
-    await backend.put(kLogs, l.id, l.toJson());
-    await _publishSummary(l.childId, l.date.year, l.date.month);
+  Future<void> saveLogs(List<DailyLog> ls) async {
+    for (final l in ls) {
+      logs[l.id] = l;
+    }
+    _write([for (final l in ls) WriteOp(kLogs, l.id, l.toJson())]);
+    _publishMonths({for (final l in ls) (l.childId, l.date.year, l.date.month)});
   }
 
-  Future<void> deleteLog(DailyLog l) async {
-    logs.remove(l.id);
-    notifyListeners();
-    await backend.delete(kLogs, l.id);
-    await _publishSummary(l.childId, l.date.year, l.date.month);
+  Future<void> saveLog(DailyLog l) => saveLogs([l]);
+
+  Future<void> deleteLogs(List<DailyLog> ls) async {
+    for (final l in ls) {
+      logs.remove(l.id);
+    }
+    _write([for (final l in ls) WriteOp(kLogs, l.id, null)]);
+    _publishMonths({for (final l in ls) (l.childId, l.date.year, l.date.month)});
+  }
+
+  Future<void> deleteLog(DailyLog l) => deleteLogs([l]);
+
+  Future<void> saveLeave(LeavePeriod p) async {
+    leaves[p.id] = p;
+    _write([WriteOp(kLeaves, p.id, p.toJson())]);
+    await publishAll();
+  }
+
+  Future<void> deleteLeave(LeavePeriod p) async {
+    leaves.remove(p.id);
+    _write([WriteOp(kLeaves, p.id, null)]);
+    await publishAll();
   }
 
   Future<void> saveTaxScale(TaxScale t) async {
     taxScales[t.year] = t;
-    notifyListeners();
-    await backend.put(kTaxScales, '${t.year}', t.toJson());
+    _write([WriteOp(kTaxScales, '${t.year}', t.toJson())]);
+  }
+
+  Future<void> setNetRatio(double r) async {
+    netRatio = r;
+    _write([WriteOp(kSettings, 'general', {'netRatio': r})]);
+    await publishAll();
   }
 
   Future<void> setIncomeOverride(int year, double? v) async {
@@ -180,48 +209,149 @@ class NannyStore extends ChangeNotifier {
     } else {
       incomeOverrides[year] = v;
     }
-    notifyListeners();
-    await backend.put(kSettings, 'incomeOverrides', {
-      'values': {for (final e in incomeOverrides.entries) '${e.key}': e.value}
-    });
+    _write([
+      WriteOp(kSettings, 'incomeOverrides', {
+        'values': {for (final e in incomeOverrides.entries) '${e.key}': e.value}
+      })
+    ]);
   }
 
+  /// Valide et fige un mois : un avenant ou un pointage ultérieur ne le
+  /// modifie plus (déverrouillable).
+  Future<void> lockMonth(String childId, int year, int month) async {
+    final s = summary(childId, year, month, ignoreLock: true);
+    if (s == null) return;
+    final l = s.asLocked();
+    locked[l.id] = l;
+    _write([WriteOp(kLocked, l.id, l.toJson())]);
+    _publishMonths({(childId, year, month)});
+  }
+
+  Future<void> unlockMonth(String childId, int year, int month) async {
+    final id = '${childId}_$year-${month.toString().padLeft(2, '0')}';
+    locked.remove(id);
+    _write([WriteOp(kLocked, id, null)]);
+    _publishMonths({(childId, year, month)});
+  }
+
+  // ---------- export / import ----------
+  Data snapshot() => {
+        kChildren: {for (final e in children.entries) e.key: e.value.toJson()},
+        kContracts: {for (final e in contracts.entries) e.key: e.value.toJson()},
+        kLogs: {for (final e in logs.entries) e.key: e.value.toJson()},
+        kLeaves: {for (final e in leaves.entries) e.key: e.value.toJson()},
+        kLocked: {for (final e in locked.entries) e.key: e.value.toJson()},
+        kTaxScales: {for (final e in taxScales.entries) '${e.key}': e.value.toJson()},
+        kSettings: {
+          'general': {'netRatio': netRatio},
+          'incomeOverrides': {
+            'values': {for (final e in incomeOverrides.entries) '${e.key}': e.value}
+          },
+        },
+      };
+
+  String exportJson() => const JsonEncoder.withIndent('  ').convert({
+        'app': 'ASSMATIA',
+        'exportedAt': DateTime.now().toIso8601String(),
+        'data': snapshot(),
+      });
+
+  /// Fusionne des données (export ou mode local) dans le compte courant.
+  Future<void> importData(Data d) async {
+    final ops = <WriteOp>[
+      for (final c in kPrivateCollections)
+        for (final e in (d[c] ?? {}).entries) WriteOp(c, e.key, Map<String, dynamic>.from(e.value)..remove('nannyId')),
+    ];
+    final merged = snapshot();
+    for (final op in ops) {
+      (merged[op.collection] ??= {})[op.id] = op.data!;
+    }
+    _apply(merged);
+    _write(ops);
+    await publishAll();
+  }
+
+  /// Supprime toutes les données de l'assistante maternelle (suppression de compte).
+  Future<void> deleteEverything() async {
+    final ops = <WriteOp>[];
+    for (final c in [...kPrivateCollections, kSharedPlannings, kSummaries]) {
+      for (final id in await backend.idsWhere(c, 'nannyId', _nannyIdOrEmpty)) {
+        ops.add(WriteOp(c, id, null));
+      }
+    }
+    backend.write(ops);
+    _apply({});
+    notifyListeners();
+  }
+
+  String get _nannyIdOrEmpty => backend is FirestoreNannyBackend ? (backend as FirestoreNannyBackend).nannyId : '';
+
   // ---------- publication vers les parents ----------
+  Future<void> publishAll() async {
+    for (final id in children.keys) {
+      await publishChild(id);
+    }
+  }
+
+  /// Republie le planning et TOUS les récapitulatifs de l'enfant (de son
+  /// premier contrat au mois prochain) avec la liste d'accès à jour, et
+  /// supprime les récapitulatifs devenus sans objet. Retirer un parent lui
+  /// retire donc l'accès à tout l'historique.
   Future<void> publishChild(String childId) async {
     if (!backend.supportsSharing) return;
     final child = children[childId];
     if (child == null) return;
-    final now = DateTime.now();
-    final current = contractOn(childId, now) ??
-        (contractsOf(childId).isEmpty ? null : contractsOf(childId).last);
-    final terms = current == null ? null : resolveTerms(current, now);
-    await backend.put(kSharedPlannings, childId, {
-      'childId': childId,
-      'firstName': child.firstName,
-      'color': child.color,
-      'parentEmails': child.parentEmails,
-      'schedule': terms?.schedule.toJson(),
-      'weeklyHours': terms?.weeklyHours ?? 0,
-      'updatedAt': now.toIso8601String(),
-    });
-    // Récapitulatifs : 12 derniers mois + mois courant.
-    for (var i = 12; i >= 0; i--) {
-      final d = DateTime(now.year, now.month - i, 1);
-      await _publishSummary(childId, d.year, d.month);
+    final today = now();
+    final cs = contractsOf(childId);
+    final current = contractOn(childId, today) ?? (cs.isEmpty ? null : cs.last);
+    final terms = current == null ? null : resolveTerms(current, today);
+    final ops = <WriteOp>[
+      WriteOp(kSharedPlannings, childId, {
+        'childId': childId,
+        'firstName': child.firstName,
+        'color': child.color,
+        'parentEmails': child.parentEmails,
+        'schedule': terms?.schedule.toJson(),
+        'weeklyHours': terms?.weeklyHours ?? 0,
+        'updatedAt': today.toIso8601String(),
+      }),
+    ];
+    final keep = <String>{};
+    if (cs.isNotEmpty) {
+      var m = DateTime(cs.first.startDate.year, cs.first.startDate.month);
+      final stop = DateTime(today.year, today.month + 1);
+      while (!m.isAfter(stop)) {
+        final op = _summaryOp(child, m.year, m.month);
+        if (op.data != null) {
+          ops.add(op);
+          keep.add(op.id);
+        }
+        m = DateTime(m.year, m.month + 1);
+      }
     }
+    try {
+      for (final id in await backend.idsWhere(kSummaries, 'childId', childId)) {
+        if (!keep.contains(id)) ops.add(WriteOp(kSummaries, id, null));
+      }
+    } catch (_) {/* hors ligne : nettoyage au prochain passage */}
+    backend.write(ops);
   }
 
-  Future<void> _publishSummary(String childId, int year, int month) async {
+  void _publishMonths(Set<(String, int, int)> months) {
     if (!backend.supportsSharing) return;
-    final child = children[childId];
-    if (child == null) return;
-    final s = summary(childId, year, month);
-    final id = '${childId}_$year-${month.toString().padLeft(2, '0')}';
-    if (s == null) {
-      await backend.delete(kSummaries, id);
-      return;
+    final ops = <WriteOp>[];
+    for (final (childId, y, m) in months) {
+      final child = children[childId];
+      if (child != null) ops.add(_summaryOp(child, y, m));
     }
-    await backend.put(kSummaries, id, {
+    if (ops.isNotEmpty) backend.write(ops);
+  }
+
+  WriteOp _summaryOp(Child child, int year, int month) {
+    final s = summary(child.id, year, month);
+    final id = '${child.id}_$year-${month.toString().padLeft(2, '0')}';
+    if (s == null) return WriteOp(kSummaries, id, null);
+    return WriteOp(kSummaries, id, {
       ...s.toJson(),
       'firstName': child.firstName,
       'parentEmails': child.parentEmails,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/nanny_store.dart';
 import '../../domain/engine.dart';
@@ -247,6 +248,8 @@ class _SharingSection extends StatelessWidget {
               dense: true,
               leading: const Icon(Icons.person),
               title: Text(e),
+              onTap: () => shareInvite(child, e),
+              subtitle: const Text("Toucher pour renvoyer l'invitation", style: TextStyle(fontSize: 11)),
               trailing: IconButton(
                 icon: const Icon(Icons.remove_circle_outline),
                 tooltip: 'Retirer l\'accès',
@@ -273,6 +276,19 @@ class _SharingSection extends StatelessWidget {
               final v = email?.trim().toLowerCase() ?? '';
               if (!v.contains('@') || child.parentEmails.contains(v)) return;
               await store.saveChild(child.copyWith(parentEmails: [...child.parentEmails, v]));
+              if (!context.mounted) return;
+              final send = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Accès autorisé'),
+                  content: Text("Envoyer l'invitation à $v (SMS, e-mail, messagerie…) ?"),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Plus tard')),
+                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Partager')),
+                  ],
+                ),
+              );
+              if (send == true) await shareInvite(child, v);
             },
           ),
         ]),
@@ -280,3 +296,14 @@ class _SharingSection extends StatelessWidget {
     );
   }
 }
+
+/// Message d'invitation à partager au parent.
+Future<void> shareInvite(Child child, String email) => SharePlus.instance.share(ShareParams(
+      subject: 'Suivi de ${child.firstName} sur ASSMATIA',
+      text: "Bonjour, je vous ai donné accès au planning et aux récapitulatifs mensuels de ${child.firstName} "
+          "dans l'application ASSMATIA.\n"
+          "1. Installez ASSMATIA.\n"
+          "2. Créez un compte avec l'adresse $email, puis confirmez-la via le lien reçu par e-mail.\n"
+          "3. Choisissez « Je suis parent employeur ».\n"
+          "Les informations sont en lecture seule.",
+    ));

@@ -96,7 +96,8 @@ void main() {
       final s = computeMonth(c, 2026, 3, logs);
       expect(s.baseSalary, 780.00);
       expect(s.absenceDeduction, 35.45);
-      expect(s.netSalary, 744.55);
+      expect(s.grossSalary, 744.55);
+      expect(s.netSalary, round2(744.55 * kDefaultNetRatio));
       expect(s.daysPresent, 21);
     });
     test('absence non déduite', () {
@@ -105,7 +106,7 @@ void main() {
         '2026-03-02': DailyLog(childId: 'k', date: DateTime(2026, 3, 2), status: DayStatus.absentNotDeducted),
       });
       expect(s.absenceDeduction, 0);
-      expect(s.netSalary, 780);
+      expect(s.grossSalary, 780);
     });
   });
 
@@ -121,7 +122,7 @@ void main() {
       final s = computeMonth(c, 2026, 3, {});
       expect(s.meals, 77.00);
       expect(s.maintenance, 83.60);
-      expect(s.totalToPay, round2(780 + 77 + 83.6));
+      expect(s.totalToPay, round2(780 * kDefaultNetRatio + 77 + 83.6));
     });
     test('horaires effectifs et saisie manuelle', () {
       final s = computeMonth(c, 2026, 3, {
@@ -166,14 +167,14 @@ void main() {
       final r = computeAnnualTax(
           year: 2026, scale: const TaxScale(2026, 12), contracts: [a, b], logsById: {});
       // A : 12 jours ≥ 8 h → 12 × 36 = 432
-      // B : 1-9 janv. 2026 lun-jeu = 1 (jeudi),5,6,7,8 → 5 jours de 6 h → 135
-      expect(r.careDays, 17);
-      expect(r.totalAbatement, 567.0);
+      // B : 1-9 janv. 2026 lun-jeu = 5,6,7,8 (le 1er est férié) → 4 × 27 = 108
+      expect(r.careDays, 16);
+      expect(r.totalAbatement, 540.0);
       expect(r.abatementByChild['A'], 432);
-      expect(r.abatementByChild['B'], 135);
-      final inc = round2(780 * 108 / 198 + r.incomeByChild['B']!);
+      expect(r.abatementByChild['B'], 108);
+      final inc = round2(round2(round2(780 * 108 / 198) * kDefaultNetRatio) + r.incomeByChild['B']!);
       expect(r.taxableIncome, inc);
-      expect(r.netTaxable, round2(inc - 567 < 0 ? 0 : inc - 567));
+      expect(r.netTaxable, round2(inc - 540 < 0 ? 0 : inc - 540));
       final r2 = computeAnnualTax(
           year: 2026, scale: const TaxScale(2026, 12), contracts: [a, b], logsById: {},
           incomeOverride: 100);
