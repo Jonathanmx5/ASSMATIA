@@ -11,6 +11,10 @@ import 'presentation/auth_screen.dart';
 import 'presentation/nanny/nanny_home.dart';
 import 'presentation/parent/parent_home.dart';
 
+/// `--dart-define=USE_EMULATOR=true` : utilise les émulateurs Firebase.
+const kUseEmulator = bool.fromEnvironment('USE_EMULATOR');
+const kEmulatorHost = String.fromEnvironment('EMULATOR_HOST', defaultValue: '10.0.2.2');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR');
@@ -18,7 +22,12 @@ Future<void> main() async {
   try {
     // Nécessite android/app/google-services.json (voir README).
     await Firebase.initializeApp();
-    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: !kUseEmulator);
+    if (kUseEmulator) {
+      // Tests : émulateurs Firebase locaux (10.0.2.2 = PC hôte vu de l'émulateur Android).
+      await FirebaseAuth.instance.useAuthEmulator(kEmulatorHost, 9099);
+      FirebaseFirestore.instance.useFirestoreEmulator(kEmulatorHost, 8080);
+    }
     firebaseOk = true;
   } catch (_) {
     firebaseOk = false;
