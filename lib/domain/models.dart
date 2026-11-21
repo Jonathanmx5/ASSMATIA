@@ -472,3 +472,7 @@ class PaidLeaveLedger {
 /// Conversion taux horaire net ↔ brut.
 double netToGross(double net, double ratio) => ratio <= 0 ? net : round2(net / ratio);
 double grossToNet(double gross, double ratio) => round2(gross * ratio);
+
+/// Ajoute [n] jours calendaires (sûr au changement d'heure, contrairement à
+/// `add(Duration(days: n))` qui ajoute 24 h et décale la date fin octobre).
+DateTime addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n);

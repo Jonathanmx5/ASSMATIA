@@ -270,7 +270,7 @@ MonthlySummary computeMonth(Contract c, int year, int month, Map<String, DailyLo
       salary += t.monthlySalary * r.plannedHours / pot;
       deduction += t.monthlySalary * r.absenceDeductedHours / pot;
     }
-    final wk = dateKey(d.subtract(Duration(days: d.weekday - 1)));
+    final wk = dateKey(addDays(d, -(d.weekday - 1)));
     weekWorked[wk] = (weekWorked[wk] ?? 0) + r.workedHours;
     if (r.extraHours > 0) {
       weekExtra[wk] = (weekExtra[wk] ?? 0) + r.extraHours;

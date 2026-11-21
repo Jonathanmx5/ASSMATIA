@@ -109,4 +109,19 @@ void main() {
     expect(netToGross(3.12, .78), 4.0);
     expect(grossToNet(4, .78), 3.12);
   });
+
+  group("changement d'heure (fin octobre)", () {
+    test('addDays reste sur la bonne date', () {
+      expect(dateKey(addDays(DateTime(2026, 10, 25), 1)), '2026-10-26');
+      expect(dateKey(addDays(DateTime(2026, 10, 26), -1)), '2026-10-25');
+      expect(dateKey(addDays(DateTime(2026, 3, 29), 1)), '2026-03-30');
+    });
+    test('heures en plus : la semaine du 26/10 regroupée correctement', () {
+      // Dimanche 25/10 (changement d'heure) puis semaine du 26 au 30/10.
+      final s = computeMonth(contract(sched9), 2026, 10, {
+        '2026-10-30': late(DateTime(2026, 10, 30), 1),
+      });
+      expect(s.extraPay, round2(1 * 4 * 1.25)); // 46 h dans la semaine → majorée
+    });
+  });
 }

@@ -15,7 +15,7 @@ class PlanningTab extends StatefulWidget {
 
 class _PlanningTabState extends State<PlanningTab> {
   late DateTime monday = _monday(DateTime.now());
-  static DateTime _monday(DateTime d) => dayOnly(d).subtract(Duration(days: d.weekday - 1));
+  static DateTime _monday(DateTime d) => addDays(dayOnly(d), -(d.weekday - 1));
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class _PlanningTabState extends State<PlanningTab> {
       Row(children: [
         IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() => monday = monday.subtract(const Duration(days: 7)))),
+            onPressed: () => setState(() => monday = addDays(monday, -(7)))),
         Expanded(
           child: TextButton(
             onPressed: () => setState(() => monday = _monday(DateTime.now())),
@@ -33,11 +33,11 @@ class _PlanningTabState extends State<PlanningTab> {
         ),
         IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() => monday = monday.add(const Duration(days: 7)))),
+            onPressed: () => setState(() => monday = addDays(monday, 7))),
       ]),
       Expanded(
         child: ListView(children: [
-          for (var i = 0; i < 7; i++) _day(context, s, monday.add(Duration(days: i))),
+          for (var i = 0; i < 7; i++) _day(context, s, addDays(monday, i)),
         ]),
       ),
     ]);

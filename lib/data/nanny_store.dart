@@ -181,7 +181,7 @@ class NannyStore extends ChangeNotifier {
     final ops = <WriteOp>[];
     for (final p in leaves.values.where((p) => p.childIds.length == 1 && p.childIds.first == childId).toList()) {
       final covered = <DateTime>[];
-      for (var d = dayOnly(p.from); !d.isAfter(dayOnly(p.to)); d = d.add(const Duration(days: 1))) {
+      for (var d = dayOnly(p.from); !d.isAfter(dayOnly(p.to)); d = addDays(d, 1)) {
         covered.add(d);
       }
       if (!covered.any((d) => set.contains(dateKey(d)))) continue;

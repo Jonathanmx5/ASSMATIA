@@ -42,7 +42,7 @@ class _DailyTabState extends State<DailyTab> {
       Row(children: [
         IconButton(
             icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() => day = day.subtract(const Duration(days: 1)))),
+            onPressed: () => setState(() => day = addDays(day, -(1)))),
         Expanded(
           child: TextButton(
             onPressed: () async {
@@ -54,7 +54,7 @@ class _DailyTabState extends State<DailyTab> {
         ),
         IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() => day = day.add(const Duration(days: 1)))),
+            onPressed: () => setState(() => day = addDays(day, 1))),
       ]),
       if (kids.isNotEmpty)
         Padding(
@@ -145,10 +145,10 @@ class _LogEditorState extends State<_LogEditor> {
 
   /// Absence sur toute la semaine (jours prévus au planning, contrat actif).
   Future<void> _wholeWeek(DayStatus st) async {
-    final monday = widget.day.subtract(Duration(days: widget.day.weekday - 1));
+    final monday = addDays(widget.day, -(widget.day.weekday - 1));
     final ls = <DailyLog>[];
     for (var i = 0; i < 7; i++) {
-      final d = monday.add(Duration(days: i));
+      final d = addDays(monday, i);
       if (!widget.contract.isActiveOn(d) || widget.store.isLocked(widget.child.id, d.year, d.month)) continue;
       final h = resolveTerms(widget.contract, d).schedule.hoursFor(d.weekday);
       if (h <= 0) continue;

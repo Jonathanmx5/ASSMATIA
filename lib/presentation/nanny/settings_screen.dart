@@ -102,7 +102,7 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _editLeave(BuildContext context, LeavePeriod? p) async {
     var from = p?.from ?? dayOnly(DateTime.now());
-    var to = p?.to ?? from.add(const Duration(days: 6));
+    var to = p?.to ?? addDays(from, 6);
     final label = TextEditingController(text: p?.label ?? 'Congés');
     final selected = {...?p?.childIds};
     final ok = await showDialog<bool>(
