@@ -97,7 +97,7 @@ Future<void> verifyEmailOnEmulator(String uid) async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('parcours complet assistante maternelle puis parent', (t) async {
+  testWidgets('parcours complet assistante maternelle puis parent', timeout: const Timeout(Duration(minutes: 4)), (t) async {
     await app.main();
     await t.pumpAndSettle();
     await FirebaseAuth.instance.signOut();
@@ -237,7 +237,7 @@ void main() {
         throwsA(isA<FirebaseException>()));
   });
 
-  testWidgets('révocation du parent et suppression des comptes', (t) async {
+  testWidgets('révocation du parent et suppression des comptes', timeout: const Timeout(Duration(minutes: 3)), (t) async {
     Future<void> signIn(String email) async {
       await fill(t, 'E-mail', email);
       await fill(t, 'Mot de passe', pwd);

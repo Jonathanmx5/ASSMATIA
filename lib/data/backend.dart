@@ -94,7 +94,9 @@ class FirestoreNannyBackend implements NannyBackend {
 
   @override
   Future<List<String>> idsWhere(String collection, String field, Object value) async {
-    final s = await _get(_mine(collection).where(field, isEqualTo: value));
+    // _mine() filtre déjà sur nannyId : ne pas répéter ce filtre.
+    final q = field == 'nannyId' ? _mine(collection) : _mine(collection).where(field, isEqualTo: value);
+    final s = await _get(q);
     return s.docs.map((d) => d.id).toList();
   }
 }

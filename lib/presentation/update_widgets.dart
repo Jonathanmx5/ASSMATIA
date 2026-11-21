@@ -50,7 +50,12 @@ class UpdatePanel extends StatelessWidget {
             Text('Version installée : ${u.currentVersion.isEmpty ? '…' : '${u.currentVersion} (${u.currentBuild})'}'),
             const SizedBox(height: 12),
             switch (u.state) {
-              UpdateState.checking || UpdateState.idle => const Row(children: [
+              UpdateState.idle => OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Rechercher une mise à jour'),
+                  onPressed: u.check,
+                ),
+              UpdateState.checking => const Row(children: [
                   SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                   SizedBox(width: 12),
                   Text('Recherche de mise à jour…'),
