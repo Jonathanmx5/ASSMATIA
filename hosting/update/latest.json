@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "apk": "assmatia-1.0.0+1.apk",
-  "build": 1,
-  "notes": "Version initiale"
+  "notes": "Engrenage de mise à jour, corrections.",
+  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.1-2/assmatia-1.0.1-2.apk",
+  "build": 2,
+  "version": "1.0.1"
 }
