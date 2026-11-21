@@ -1,6 +1,6 @@
 {
-  "version": "1.0.6",
-  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.6-7/assmatia-1.0.6-7.apk",
-  "build": 7,
-  "notes": "Logo aux traits plus épais."
+  "build": 8,
+  "version": "1.0.7",
+  "notes": "Logo aux traits épais (V1).",
+  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.7-8/assmatia-1.0.7-8.apk"
 }
