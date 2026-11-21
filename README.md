@@ -15,7 +15,7 @@
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
   <img alt="Firebase" src="https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black">
   <img alt="Tests" src="https://img.shields.io/badge/tests-39%20unitaires%20%C2%B7%209%20r%C3%A8gles%20%C2%B7%202%20bout%20en%20bout-4CC9A6">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5-9C7CF0">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.7-9C7CF0">
 </p>
 
 <p align="center">
