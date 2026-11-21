@@ -1,0 +1,59 @@
+rules_version = '2';
+// Règles de sécurité ASSMATIA.
+// - Seule l'assistante maternelle (nannyId == uid) écrit et lit ses données.
+// - Les parents lisent uniquement sharedPlannings / monthlySummaries dont
+//   parentEmails contient leur e-mail vérifié par Firebase Auth.
+// - Aucune écriture parent (hors leur propre profil users/{uid}).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner() {
+      return signedIn() && resource.data.nannyId == request.auth.uid;
+    }
+    function writesAsOwner() {
+      return signedIn()
+        && request.resource.data.nannyId == request.auth.uid
+        && (resource == null || resource.data.nannyId == request.auth.uid);
+    }
+    function isNanny() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'nanny';
+    }
+    function parentAllowed() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in resource.data.parentEmails;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      // Le rôle est fixé à la création et ne peut plus changer.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role in ['nanny', 'parent'];
+      allow update, delete: if false;
+    }
+
+    // Données privées de l'assistante maternelle (fiscal inclus).
+    match /{col}/{id} {
+      allow read: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings']
+        && isOwner();
+      allow create, update: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings']
+        && isNanny() && writesAsOwner();
+      allow delete: if col in ['children', 'contracts', 'dailyLogs', 'taxScales', 'settings']
+        && isOwner();
+    }
+
+    // Vues partagées en lecture seule.
+    match /sharedPlannings/{childId} {
+      allow read: if isOwner() || parentAllowed();
+      allow create, update: if isNanny() && writesAsOwner();
+      allow delete: if resource == null || isOwner();
+    }
+    match /monthlySummaries/{id} {
+      allow read: if isOwner() || parentAllowed();
+      allow create, update: if isNanny() && writesAsOwner();
+      allow delete: if resource == null || isOwner();
+    }
+  }
+}

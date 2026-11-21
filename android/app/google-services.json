@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "192136134562",
+    "project_id": "assmatia-38810",
+    "storage_bucket": "assmatia-38810.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:192136134562:android:ee6a61644f19f2776e3cfb",
+        "android_client_info": {
+          "package_name": "fr.assmatia.assmatia"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbFAyYPJ_yI18_sLwGMBXPdiQ0PWYF00Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
