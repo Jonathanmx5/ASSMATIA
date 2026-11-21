@@ -34,9 +34,9 @@ Future<void> reveal(WidgetTester t, Finder f) async {
   try {
     await pumpUntil(t, f, seconds: 4);
   } on TestFailure {
-    final lists = find.byType(Scrollable);
+    final lists = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);
     if (lists.evaluate().isEmpty) rethrow;
-    await t.scrollUntilVisible(f, 300, scrollable: lists.last, maxScrolls: 30);
+    await t.scrollUntilVisible(f, 300, scrollable: lists.first, maxScrolls: 30);
   }
 }
 
@@ -134,7 +134,7 @@ void main() {
     await pickDate(t, 'Date de début', '01/10/2026');
     await tapText(t, 'Enregistrer');
     await pumpUntil(t, find.textContaining('chevauche'));
-    await t.pageBack();
+    await t.tap(find.byType(BackButton).first);
     await t.pumpAndSettle();
 
     // Avenant au 01/11/2026 : taux 5 €.
@@ -151,7 +151,7 @@ void main() {
     await tapText(t, 'Autoriser');
     await tapText(t, 'Plus tard');
     expect(find.text(parentEmail), findsOneWidget); // normalisé en minuscules
-    await t.pageBack();
+    await t.tap(find.byType(BackButton).first);
     await t.pumpAndSettle();
 
     // Planning : semaine du 16/11/2026, férié du 11 visible la semaine précédente.
@@ -207,7 +207,7 @@ void main() {
     await tapText(t, 'Ajouter une période');
     await tapText(t, 'Enregistrer');
     await pumpUntil(t, find.byIcon(Icons.beach_access));
-    await t.pageBack();
+    await t.tap(find.byType(BackButton).first);
     await t.pumpAndSettle();
 
     // Laisse le temps aux écritures Firestore d'arriver.
@@ -235,5 +235,67 @@ void main() {
     await expectLater(
         FirebaseFirestore.instance.collection('monthlySummaries').doc('pirate').set({'x': 1}),
         throwsA(isA<FirebaseException>()));
+  });
+
+  testWidgets('révocation du parent et suppression des comptes', (t) async {
+    Future<void> signIn(String email) async {
+      await fill(t, 'E-mail', email);
+      await fill(t, 'Mot de passe', pwd);
+      await t.tap(find.widgetWithText(OutlinedButton, 'Se connecter'));
+      await t.pumpAndSettle();
+    }
+
+    await app.main();
+    await t.pumpAndSettle();
+    if (FirebaseAuth.instance.currentUser != null) {
+      await FirebaseAuth.instance.signOut();
+      await t.pumpAndSettle();
+    }
+
+    // L'assistante retire l'accès du parent.
+    await signIn(nannyEmail);
+    await tapText(t, 'Lina');
+    await pumpUntil(t, find.text(parentEmail));
+    await t.tap(find.byIcon(Icons.remove_circle_outline));
+    await t.pumpAndSettle();
+    expect(find.text(parentEmail), findsNothing);
+    await t.pump(const Duration(seconds: 3));
+    await t.tap(find.byType(BackButton).first);
+    await t.pumpAndSettle();
+    await tapIcon(t, Icons.logout);
+
+    // Le parent ne voit plus rien, y compris l'historique.
+    await signIn(parentEmail);
+    await pumpUntil(t, find.textContaining('Aucun enfant partagé'));
+    final left = await FirebaseFirestore.instance
+        .collection('monthlySummaries')
+        .where('parentEmails', arrayContains: parentEmail)
+        .get();
+    expect(left.docs, isEmpty);
+
+    // Suppression du compte parent.
+    await tapIcon(t, Icons.more_vert);
+    await tapText(t, 'Supprimer mon compte');
+    await tapText(t, 'Supprimer');
+    await pumpUntil(t, find.text('Continuer avec Google'));
+
+    // Suppression du compte assistante maternelle et de toutes ses données.
+    await signIn(nannyEmail);
+    await pumpUntil(t, find.text('Lina'));
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    await tapIcon(t, Icons.settings);
+    await tapText(t, 'Supprimer mon compte et mes données');
+    await t.tap(find.widgetWithText(FilledButton, 'Supprimer'));
+    await t.pumpAndSettle();
+    await pumpUntil(t, find.text('Continuer avec Google'));
+    expect(FirebaseAuth.instance.currentUser, isNull);
+    // Vérification côté serveur (émulateur, règles contournées).
+    final c = HttpClient();
+    final r = await c.getUrl(Uri.parse(
+        'http://${app.kEmulatorHost}:8080/v1/projects/$project/databases/(default)/documents/contracts'));
+    r.headers.set('Authorization', 'Bearer owner');
+    final body = await (await r.close()).transform(utf8.decoder).join();
+    expect(body.contains(uid), isFalse, reason: 'contrats restants');
+    c.close();
   });
 }
