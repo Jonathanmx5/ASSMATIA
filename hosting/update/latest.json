@@ -1,6 +1,6 @@
 {
-  "build": 4,
-  "version": "1.0.3",
-  "notes": "Connexion avec Google.",
-  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.3-4/assmatia-1.0.3-4.apk"
+  "version": "1.0.4",
+  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.4-5/assmatia-1.0.4-5.apk",
+  "build": 5,
+  "notes": "Logo agrandi."
 }

@@ -223,7 +223,7 @@ class KidLogo extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        padding: EdgeInsets.all(size * .16),
+        padding: EdgeInsets.all(size * .07),
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
