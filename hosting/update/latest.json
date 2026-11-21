@@ -1,6 +1,6 @@
 {
-  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.2-3/assmatia-1.0.2-3.apk",
-  "build": 3,
-  "version": "1.0.2",
-  "notes": "Nouveau look : couleurs, logo, animations."
+  "build": 4,
+  "version": "1.0.3",
+  "notes": "Connexion avec Google.",
+  "apk": "https://github.com/Jonathanmx5/assmatia-releases/releases/download/v1.0.3-4/assmatia-1.0.3-4.apk"
 }

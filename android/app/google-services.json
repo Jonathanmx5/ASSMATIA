@@ -12,7 +12,20 @@
           "package_name": "fr.assmatia.assmatia"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "192136134562-6134uoku9ulmimdbfujsee90k90aii31.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "fr.assmatia.assmatia",
+            "certificate_hash": "c32bdcb161bbcf7e9450e56daa0366cb6a9023b0"
+          }
+        },
+        {
+          "client_id": "192136134562-0k2s5rmnr8lspkpmoamqva853p11fjuf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCbFAyYPJ_yI18_sLwGMBXPdiQ0PWYF00Q"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "192136134562-0k2s5rmnr8lspkpmoamqva853p11fjuf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
