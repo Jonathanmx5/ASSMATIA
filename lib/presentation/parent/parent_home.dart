@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/backend.dart';
 import '../../domain/models.dart';
 import '../common.dart';
+import '../update_widgets.dart';
 
 /// Espace parent : lecture seule du planning et des récapitulatifs mensuels
 /// des enfants auxquels le parent est rattaché. Rechargé à chaque ouverture.
@@ -28,6 +29,7 @@ class _ParentHomeState extends State<ParentHome> {
         title: const Text('Espace parent'),
         actions: [
           IconButton(icon: const Icon(Icons.sync), onPressed: () => setState(() => data = _load())),
+          const UpdateGearButton(),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'out') return widget.onSignOut();

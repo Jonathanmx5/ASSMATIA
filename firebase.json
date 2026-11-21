@@ -1,5 +1,8 @@
 {
-  "firestore": { "rules": "firestore.rules", "location": "eur3" },
+  "firestore": {
+    "rules": "firestore.rules",
+    "location": "eur3"
+  },
   "auth": {
     "providers": {
       "emailPassword": true,
@@ -9,5 +12,32 @@
         "authorizedRedirectUris": []
       }
     }
+  },
+  "hosting": {
+    "public": "hosting",
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ],
+    "headers": [
+      {
+        "source": "/update/latest.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/update/*.apk",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/vnd.android.package-archive"
+          }
+        ]
+      }
+    ]
   }
 }

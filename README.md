@@ -1,44 +1,95 @@
-# ASSMATIA — application Android pour assistantes maternelles (V1)
+# ASSMATIA
 
-Flutter/Dart. Calculs fournis à titre d'aide/simulation : seuls les montants officiels font foi.
+Application Android (Flutter) pour **assistantes maternelles agréées** : contrats et avenants, plannings,
+suivi quotidien, salaires, indemnités, déductions d'absence, congés payés et bilan fiscal annuel —
+avec partage **en lecture seule** du planning et des récapitulatifs aux parents employeurs.
 
-## Structure
-- `lib/domain/` — modèles (enfants, contrats, avenants `effectiveFrom`, plannings, suivis) et `engine.dart` :
-  résolution des avenants à une date, mensualisation (`heures hebdo × semaines / 12 × taux`),
-  indemnités repas (par jour) et entretien (`max(forfait jour, €/h × heures)`), déduction Cour de cassation
-  (`salaire × heures d'absence / heures potentielles du mois`, 0 si 0), abattement fiscal annuel multi-enfants
-  (≥ 8 h : 3 × SMIC ; < 8 h : h/8 × 3 × SMIC), revenu net imposable plafonné à 0, arrondi final au centime.
-  Entrée/sortie ou avenant en cours de mois : salaire proratisé jour par jour selon les heures prévues.
-- `lib/data/` — `NannyStore` (cache mémoire, synchronisation à l'ouverture), backends Firestore (cache hors ligne
-  activé) et fichier local (repli automatique si Firebase n'est pas configuré → « Mode local », sans partage).
-  À chaque modification, l'app publie `sharedPlannings/{childId}` et `monthlySummaries/{childId_AAAA-MM}`
-  (13 derniers mois) — seules données lisibles par les parents.
-- `lib/presentation/` — assmat : Enfants (fiches, contrats, avenants, partage), Planning semaine multi-enfants,
-  Suivi du jour, Récaps mensuels, Bilan fiscal (SMIC configurable, revenus saisissables). Parent : planning +
-  récaps en lecture seule.
-- `firestore.rules` — écriture réservée à `nannyId == uid` (rôle `nanny`) ; parents : lecture des seules vues
-  partagées dont `parentEmails` contient leur e-mail ; aucun accès aux contrats, suivis ni au fiscal.
-- `test/engine_test.dart` — 18 tests unitaires du moteur.
+> ⚠️ Les calculs sont fournis à titre d'aide et de simulation. Seuls les montants officiels
+> (Pajemploi, URSSAF, administration fiscale) font foi.
 
-## Activer Firebase (synchronisation + partage parents)
-1. Créer un projet Firebase, ajouter l'app Android `fr.assmatia.assmatia`, activer Auth « E-mail/mot de passe » et Firestore.
-2. Déposer `google-services.json` dans `android/app/` et ajouter le plugin `com.google.gms.google-services`
-   (`android/settings.gradle.kts` + `android/app/build.gradle.kts`) — ou lancer `flutterfire configure`.
-3. Déployer les règles : `firebase deploy --only firestore:rules`.
-4. Inviter un parent depuis la fiche enfant (e-mail) ; il crée un compte avec cet e-mail et choisit « Parent ».
+## Fonctionnalités
 
-## Commandes
-`flutter test` · `flutter analyze` · `flutter build apk`
+**Assistante maternelle**
+- Fiches enfants (prénom, couleur, archivage) et invitation des parents par e-mail.
+- Contrats en **année complète** ou **incomplète**, **avenants datés** (`effectiveFrom`) sans réécriture du passé ;
+  contrôle des chevauchements de contrats et de tranches horaires.
+- Planning hebdomadaire multi-enfants (jours fériés et congés visibles).
+- Suivi du jour : présence, horaires réels, absences déduites ou non, indemnités ;
+  « Tous présents » en un geste, absence sur toute la semaine.
+- Récapitulatif mensuel : mensualisation brute, déduction **Cour de cassation**, brut du mois, **net estimé**
+  (taux réglable), indemnités repas et entretien, détail jour par jour, **validation / verrouillage** du mois.
+- **Congés payés** estimés (10 % ou maintien de salaire, le plus favorable).
+- **Bilan fiscal** sur l'année civile, tous enfants confondus (abattement 3 × SMIC par jour ≥ 8 h,
+  prorata en dessous), SMIC configurable, revenu net imposable plafonné à 0.
+- Réglages : périodes de congés / semaines non programmées, export et import JSON, suppression du compte.
 
-Hors V1 : paiement, PDF, notifications, multi-rythmes, majorations.
+**Parent employeur**
+- Consultation du planning et des récapitulatifs de **son** enfant uniquement, après vérification de l'e-mail.
 
-## Évolutions (lot 2)
-- Sécurité : accès parent conditionné à un e-mail **vérifié** ; révocation d'un parent appliquée à tout l'historique ;
-  tests des règles : `cd rules_test && npm test` (émulateur Firestore, 9 cas).
-- Hors ligne : écritures non bloquantes (cache Firestore), erreurs affichées ; publications groupées en lots.
-- Calculs : brut / net estimé (taux réglable), jours fériés automatiques, périodes de congés / semaines non
-  programmées, jours futurs en prévisionnel, abattement limité aux jours effectifs, estimation des congés payés
-  (10 % vs maintien, récap de mai/juin), contrôle des chevauchements (contrats, tranches).
-- Écrans : « Tous présents », absence sur la semaine, détail jour par jour, formule Cour de cassation,
-  validation/verrouillage d'un mois, réglages (congés, taux net, export/import JSON), migration mode local → cloud,
-  mot de passe oublié, suppression de compte, partage du message d'invitation.
+**Comptes** : e-mail / mot de passe ou **compte Google**, mot de passe oublié.
+
+## Règles de calcul
+
+| Élément | Formule |
+|---|---|
+| Mensualisation | taux × heures hebdo × semaines (52 en année complète) / 12 |
+| Mois incomplet / avenant en cours de mois | prorata jour par jour des heures prévues |
+| Déduction d'absence | salaire mensuel × heures d'absence / heures potentielles du mois (0 si aucune) |
+| Entretien | max(forfait journalier, montant horaire × heures du jour) |
+| Abattement fiscal | ≥ 8 h : 3 × SMIC ; < 8 h : heures / 8 × 3 × SMIC (jours effectifs uniquement) |
+| Revenu net imposable | max(0, revenus imposables − abattement) |
+
+Les jours fériés (métropole) sont payés sans accueil ; les jours futurs sont prévisionnels.
+Tous les montants sont arrondis au centime en fin de calcul.
+
+## Architecture
+
+```
+lib/
+  domain/        modèles + moteur de calcul pur (engine.dart)
+  data/          NannyStore, backends Firestore / fichier local, mise à jour de l'app
+  presentation/  écrans assistante maternelle, parent, connexion
+firestore.rules  sécurité : écriture réservée à l'assmat, lecture parent limitée à son enfant
+```
+
+- **Firebase** : Authentication (e-mail, Google) et Cloud Firestore avec cache hors ligne.
+  Les écritures ne bloquent pas l'interface ; les erreurs sont affichées.
+- Les parents ne lisent que `sharedPlannings` et `monthlySummaries` (e-mail vérifié requis) ;
+  contrats, suivis et données fiscales restent privés.
+
+## Développement
+
+Prérequis : Flutter 3.x, Android SDK, Node.js et Firebase CLI.
+
+```bash
+flutter pub get
+flutter run
+```
+
+Configuration Firebase : `android/app/google-services.json` (projet `assmatia-38810`) ;
+pour un autre projet, remplacez ce fichier et l'ID client Web Google dans `lib/config.dart`.
+
+### Tests
+
+```bash
+flutter test                         # moteur de calcul et couche données
+cd rules_test && npm install && npm test   # règles Firestore (émulateur)
+```
+
+Tests de bout en bout sur émulateur Android contre les émulateurs Firebase :
+
+```bash
+firebase emulators:start --only auth,firestore --project assmatia-38810 --config firebase.emulators.json
+flutter test integration_test/app_test.dart -d emulator-5554 --dart-define=USE_EMULATOR=true
+```
+
+### Déploiement des règles
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+## Hors périmètre V1
+
+Paiement / abonnement, export PDF, notifications push, plannings multi-rythmes, majorations
+(heures supplémentaires, jours fériés travaillés).

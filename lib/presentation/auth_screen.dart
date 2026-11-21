@@ -7,6 +7,7 @@ import '../config.dart';
 
 import '../main.dart';
 import 'common.dart';
+import 'update_widgets.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -64,7 +65,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(24), children: [
-          const SizedBox(height: 32),
+          const Align(alignment: Alignment.centerRight, child: UpdateGearButton()),
           const Icon(Icons.child_friendly, size: 64),
           Text('ASSMATIA', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
           const Text('Gestion des contrats d\'accueil', textAlign: TextAlign.center),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/backend.dart';
 import '../../data/nanny_store.dart';
 import '../common.dart';
+import '../update_widgets.dart';
 import 'children_screens.dart';
 import 'daily_tab.dart';
 import 'planning_tab.dart';
@@ -83,7 +84,7 @@ class _NannyHomeState extends State<NannyHome> {
               const Padding(padding: EdgeInsets.only(right: 4), child: Chip(label: Text('Mode local'))),
             IconButton(icon: const Icon(Icons.sync), tooltip: 'Synchroniser', onPressed: s.load),
             IconButton(
-              icon: const Icon(Icons.settings),
+              icon: const UpdateBadgeIcon(),
               tooltip: 'Réglages',
               onPressed: () => Navigator.push(
                   context,

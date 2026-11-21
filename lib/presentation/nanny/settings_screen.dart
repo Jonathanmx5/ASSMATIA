@@ -10,6 +10,7 @@ import '../../data/backend.dart';
 import '../../data/nanny_store.dart';
 import '../../domain/models.dart';
 import '../common.dart';
+import '../update_widgets.dart';
 import 'contract_screens.dart';
 
 /// Congés, paramètres, sauvegarde et compte.
@@ -59,6 +60,8 @@ class SettingsScreen extends StatelessWidget {
             trailing: Text('${hoursFmt.format(store.netRatio * 100)} %'),
             onTap: () => _editRatio(context),
           ),
+          const _Header('Application'),
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: UpdatePanel()),
           const _Header('Sauvegarde'),
           ListTile(
             leading: const Icon(Icons.upload_file),

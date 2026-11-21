@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'data/backend.dart';
+import 'data/updater.dart';
 import 'data/nanny_store.dart';
 import 'presentation/auth_screen.dart';
 import 'presentation/nanny/nanny_home.dart';
@@ -33,6 +34,7 @@ Future<void> main() async {
     firebaseOk = false;
   }
   runApp(AssmatApp(firebaseOk: firebaseOk));
+  if (!kUseEmulator) Updater.instance.check();
 }
 
 class AssmatApp extends StatelessWidget {
