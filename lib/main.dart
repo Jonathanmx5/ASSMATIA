@@ -82,7 +82,7 @@ class _AuthGateState extends State<AuthGate> {
               return const Scaffold(body: Center(child: CircularProgressIndicator()));
             }
             final role = roleSnap.data!.data()?['role'];
-            void signOut() => FirebaseAuth.instance.signOut();
+            void signOut() => signOutEverywhere();
             Future<void> reset() => FirebaseAuth.instance.sendPasswordResetEmail(email: user.email ?? '');
             if (role == 'parent') {
               final current = FirebaseAuth.instance.currentUser ?? user;

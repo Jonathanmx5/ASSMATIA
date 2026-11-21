@@ -1,4 +1,13 @@
 {
   "firestore": { "rules": "firestore.rules", "location": "eur3" },
-  "auth": { "providers": { "emailPassword": true } }
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "ASSMATIA",
+        "supportEmail": "jopitet@gmail.com",
+        "authorizedRedirectUris": []
+      }
+    }
+  }
 }

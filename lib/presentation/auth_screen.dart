@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../config.dart';
 
 import '../main.dart';
 import 'common.dart';
@@ -17,6 +20,25 @@ class _AuthScreenState extends State<AuthScreen> {
   bool signup = false;
   String? error;
   bool busy = false;
+
+  /// Connexion Google : l'e-mail Google est déjà vérifié, ce qui satisfait
+  /// directement la règle d'accès des parents.
+  Future<void> _google() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await signInWithGoogle();
+    } on GoogleSignInException catch (e) {
+      if (e.code != GoogleSignInExceptionCode.canceled) error = 'Connexion Google impossible : ${e.description ?? e.code.name}';
+    } on FirebaseAuthException catch (e) {
+      error = e.message ?? e.code;
+    } catch (e) {
+      error = 'Connexion Google impossible : $e';
+    }
+    if (mounted) setState(() => busy = false);
+  }
 
   Future<void> _go() async {
     setState(() {
@@ -51,7 +73,20 @@ class _AuthScreenState extends State<AuthScreen> {
           TextField(controller: pwd, obscureText: true, decoration: const InputDecoration(labelText: 'Mot de passe')),
           if (error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(error!, style: const TextStyle(color: Colors.red))),
           const SizedBox(height: 16),
-          FilledButton(onPressed: busy ? null : _go, child: Text(signup ? 'Créer un compte' : 'Se connecter')),
+          FilledButton.icon(
+            onPressed: busy ? null : _google,
+            icon: const Icon(Icons.account_circle),
+            label: const Text('Continuer avec Google'),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Row(children: [
+              Expanded(child: Divider()),
+              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('ou par e-mail')),
+              Expanded(child: Divider()),
+            ]),
+          ),
+          OutlinedButton(onPressed: busy ? null : _go, child: Text(signup ? 'Créer un compte' : 'Se connecter')),
           TextButton(
             onPressed: () => setState(() => signup = !signup),
             child: Text(signup ? 'J\'ai déjà un compte' : 'Créer un compte'),
@@ -178,4 +213,26 @@ class RolePicker extends StatelessWidget {
       ]),
     );
   }
+}
+
+bool _googleReady = false;
+
+Future<void> signInWithGoogle() async {
+  final g = GoogleSignIn.instance;
+  if (!_googleReady) {
+    await g.initialize(serverClientId: kGoogleServerClientId.isEmpty ? null : kGoogleServerClientId);
+    _googleReady = true;
+  }
+  final account = await g.authenticate();
+  final idToken = account.authentication.idToken;
+  if (idToken == null) throw StateError('jeton Google absent');
+  await FirebaseAuth.instance.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+}
+
+/// Déconnexion complète (Firebase + choix du compte Google).
+Future<void> signOutEverywhere() async {
+  await FirebaseAuth.instance.signOut();
+  try {
+    await GoogleSignIn.instance.signOut();
+  } catch (_) {}
 }
